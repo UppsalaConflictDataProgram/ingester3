@@ -30,13 +30,13 @@ class CAccessor:
     @classmethod
     def from_iso(cls, df, iso_col='iso'):
         z = df.copy()
-        z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]), axis=1)
+        z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]).id, axis=1)
         return z
 
     @classmethod
     def from_gwcode(cls, df, gw_col='gwcode'):
         z = df.copy()
-        z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]), axis=1)
+        z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         return z
 
 

@@ -1,6 +1,8 @@
 import pandas as pd
 from ViewsPandas.extensions import *
+from ViewsPandas.Country import Country
 from warnings import catch_warnings
+
 
 # Test the m accessor
 
@@ -52,6 +54,20 @@ assert pgm2.pgm.is_unique == True
 assert pd.DataFrame.pgm.soft_validate_year_month_latlon(pgm5).valid_year_month_latlon[0] == False
 assert pd.DataFrame.pgm.from_year_month_latlon(pgm3).pg_id[0] == 142962
 
+#test the Country Module
+
+c = Country(85)
+assert c.isoab == 'ITA'
+
+c = Country.from_gwcode(666)
+assert c.name == 'Israel'
+
+x = Country.from_iso('ROU').neighbors(month_id=400)
+assert set([i.isoab for i in x]) == {'BGR','HUN','MDA','UKR','SRB'}
+
+#x = Country.from_gwcode(666)
+#print(x)
+
 
 c_list = ['SDN','VEN','PER','FJI','ISR','ETH','ZAF','TZA','SUN','SUN','YUG','BEN','AND',
         'MCO','VUT','ARG','BOL','SYR','MNE','DEU','DDR','DMA','GRD','LCA','GBR','CSK','SUN','YEM','SCG','SRB',
@@ -72,4 +88,5 @@ c_df = pd.DataFrame({'isoab': c_list,
                      'var2': np.random.randint(1,100,len(c_list))})
 
 filled_c_df = pd.DataFrame.c.from_iso(c_df, iso_col='isoab')
-print(filled_c_df)
+assert filled_c_df[filled_c_df.isoab == 'EGY'].c_id.iloc[0] == 222
+

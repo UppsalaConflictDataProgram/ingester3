@@ -1,6 +1,6 @@
 from __future__ import annotations
-from scratch import fetch_ids, cache_manager, fetch_data
-from ViewsMonth import ViewsMonth
+from .scratch import fetch_ids, cache_manager, fetch_data
+from .ViewsMonth import ViewsMonth
 from diskcache import Cache
 
 inner_cache = Cache('inner_local_2')
@@ -46,9 +46,12 @@ class Country(object):
         neighbors = fetch_data(loa_table='country_country_month_expanded', columns=columns)
         return neighbors
 
-    def neighbors(self):
+    def neighbors(self, month_id = None):
         neighbors = Country.__fetch_neighbors()
-        neighbors = neighbors[neighbors.a_id == self.id].b_id.unique()
+        neighbors = neighbors[neighbors.a_id == self.id]
+        if month_id is not None:
+            neighbors = neighbors[neighbors.month_id == month_id]
+        neighbors = neighbors.b_id.unique()
         return [Country(i) for i in list(neighbors)]
 
     @staticmethod
@@ -98,14 +101,3 @@ class Country(object):
         self.in_africa = bool(descriptors.in_africa)
 
 
-#cache_manager(False)
-c = Country(85)
-
-for i in Country.from_iso('ROU').neighbors():
-    print(i)
-
-x = Country.from_iso('ROU')
-print(x)
-
-#x = Country.from_gwcode(666)
-#print(x)
