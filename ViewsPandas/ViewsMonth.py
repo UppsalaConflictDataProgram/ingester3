@@ -52,5 +52,3 @@ class ViewsMonth(object):
     @classmethod
     def now(cls):
         return cls.from_date(datetime.now())
-
-

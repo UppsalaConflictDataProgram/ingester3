@@ -99,5 +99,8 @@ class Country(object):
         self.caplat = descriptors.caplat
         self.caplong = descriptors.caplong
         self.in_africa = bool(descriptors.in_africa)
+        self.month_start = int(descriptors.month_start)
+        self.month_end = int(descriptors.month_end)
+
 
 

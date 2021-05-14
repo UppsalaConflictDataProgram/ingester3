@@ -23,9 +23,86 @@ class CAccessor:
         Initializes the accessor and validates that it really is a priogrid df
         :param pandas_obj: A pandas DataFrame containing
         """
-        # self._validate(pandas_obj)
+
+        self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.c_id = self._obj.c_id.astype('int')
+
+    @staticmethod
+    def _validate(obj):
+        """
+        :param obj: An Pandas DF containing a pg_id column
+        :return: Nothing. Will crash w/ ValueError if invalid, per Pandas documentation
+        """
+        if "c_id" not in obj.columns:
+            raise AttributeError("Must have a c_id column!")
+        #mid = obj['c_id'].astype('int')
+        obj.apply(lambda row: Country(row['c_id']).id, axis=1)
+
+
+    @staticmethod
+    def __soft_validate(row):
+        """
+        Soft-validate a df containing lat/lon values. Will produce a valid_latlon column to the existing dataframe
+        :param df:
+        :param lat_col:
+        :param lon_col:
+        :return:
+        """
+        try:
+            _ = Country(row.c_id).name
+            ok = True
+        except ValueError:
+            ok = False
+        return ok
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = df.copy()
+        z['valid_id'] = df.apply(CAccessor.__soft_validate, axis=1)
+        return z['valid_id']
+
+    @property
+    def name(self):
+        return self._obj.apply(lambda row: Country(row.c_id).name, axis=1)
+
+    @property
+    def gwcode(self):
+        return self._obj.apply(lambda row: Country(row.c_id).gwcode, axis=1)
+
+    @property
+    def isoab(self):
+        return self._obj.apply(lambda row: Country(row.c_id).isoab, axis=1)
+
+    @property
+    def isonum(self):
+        return self._obj.apply(lambda row: Country(row.c_id).isonum, axis=1)
+
+    @property
+    def capname(self):
+        return self._obj.apply(lambda row: Country(row.c_id).capname, axis=1)
+
+    @property
+    def caplat(self):
+        return self._obj.apply(lambda row: Country(row.c_id).caplat, axis=1)
+
+    @property
+    def caplong(self):
+        return self._obj.apply(lambda row: Country(row.c_id).caplong, axis=1)
+
+    @property
+    def in_africa(self):
+        return self._obj.apply(lambda row: Country(row.c_id).in_africa, axis=1)
+
+    @property
+    def month_start(self):
+        return self._obj.apply(lambda row: Country(row.c_id).month_start, axis=1)
+
+    @property
+    def month_end(self):
+        return self._obj.apply(lambda row: Country(row.c_id).month_end, axis=1)
+
+
 
     @classmethod
     def from_iso(cls, df, iso_col='iso'):
