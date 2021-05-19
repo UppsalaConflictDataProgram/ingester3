@@ -111,7 +111,7 @@ class Priogrid(object):
         return cls.col2lon(cls.id2col(id))
 
     @classmethod
-    def latlon2id(cls, lat, lon, hard=True):
+    def latlon2id(cls, lat, lon):
         """
         Returns a Priogrid ID from a lat and lon set of floats
         :param lat: latitude

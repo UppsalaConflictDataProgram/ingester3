@@ -1,15 +1,12 @@
 from .Priogrid import Priogrid
 from .ViewsMonth import ViewsMonth
 from .Country import Country
+from .scratch import fetch_ids
 import pandas as pd
 import numpy as np
 import warnings
 from functools import partial
 
-
-def test(x):
-    print (Priogrid(x))
-    print (ViewsMonth(x))
 
 @pd.api.extensions.register_dataframe_accessor("c")
 class CAccessor:
@@ -23,7 +20,6 @@ class CAccessor:
         Initializes the accessor and validates that it really is a priogrid df
         :param pandas_obj: A pandas DataFrame containing
         """
-
         self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.c_id = self._obj.c_id.astype('int')
@@ -38,7 +34,6 @@ class CAccessor:
             raise AttributeError("Must have a c_id column!")
         #mid = obj['c_id'].astype('int')
         obj.apply(lambda row: Country(row['c_id']).id, axis=1)
-
 
     @staticmethod
     def __soft_validate(row):
@@ -95,14 +90,16 @@ class CAccessor:
         return self._obj.apply(lambda row: Country(row.c_id).in_africa, axis=1)
 
     @property
+    def in_me(self):
+        return self._obj.apply(lambda row: Country(row.c_id).in_me, axis=1)
+
+    @property
     def month_start(self):
         return self._obj.apply(lambda row: Country(row.c_id).month_start, axis=1)
 
     @property
     def month_end(self):
         return self._obj.apply(lambda row: Country(row.c_id).month_end, axis=1)
-
-
 
     @classmethod
     def from_iso(cls, df, iso_col='iso'):
@@ -115,6 +112,21 @@ class CAccessor:
         z = df.copy()
         z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         return z
+
+    def db_id(self):
+        pass
+
+    def full_set(self):
+        available_countries, _ = fetch_ids('country')
+        av_c = set(available_countries)
+        df_c = set(self._obj.c_id)
+        return av_c == df_c
+
+    def is_unique(self):
+        if pd.unique(self._obj.c_id).size == self._obj.c_id.size:
+            return True
+        return False
+
 
 
 @pd.api.extensions.register_dataframe_accessor("pg")
@@ -178,6 +190,24 @@ class PgAccessor:
         """
         return self._obj.apply(lambda x: Priogrid(x.pg_id).lon, axis=1)
 
+
+    @property
+    def row(self):
+        """
+        Computes the row of the centroid of each dataframe row, per priogrid definitions.
+        :return: A longitude in WGS-84 format (decimal degrees)
+        """
+        return self._obj.apply(lambda x: Priogrid(x.pg_id).row, axis=1)
+
+    @property
+    def col(self):
+        """
+        Computes the col of the centroid of each dataframe row, per priogrid definitions.
+        :return: A longitude in WGS-84 format (decimal degrees)
+        """
+        return self._obj.apply(lambda x: Priogrid(x.pg_id).col, axis=1)
+
+
     @classmethod
     def from_latlon(cls, df, lat_col='lat', lon_col='lon'):
         """
@@ -216,6 +246,31 @@ class PgAccessor:
         soft_validator = partial(PgAccessor.__soft_validate_pg, lat_col=lat_col, lon_col=lon_col)
         z['valid_latlon'] = z.apply(soft_validator, axis=1)
         return z
+
+    def full_set(self, land_only=True):
+        x = self._obj
+        ctrl_grids = set(range(1, 259201))
+        if land_only:
+            ctrl_grids = set(i for i in fetch_ids('priogrid')[0])
+        if set(x.pg_id) == ctrl_grids:
+            return True
+        return False
+
+    def is_square(self, only_views_cells=False):
+        test_square = self._obj
+        min_row = test_square.pg.row.min()
+        max_row = test_square.pg.row.max()
+        min_col = test_square.pg.col.min()
+        max_col = test_square.pg.col.max()
+        square = []
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                square += [Priogrid.from_row_col(row=row, col=col).id]
+        square = set(square)
+        if only_views_cells:
+            views_cells, _ = fetch_ids('priogrid')
+            square = set(views_cells).intersection(square)
+        return square == set(test_square.pg_id)
 
 
 @pd.api.extensions.register_dataframe_accessor("m")
@@ -275,6 +330,99 @@ class MAccessor():
         z['valid_year_month'] = z.apply(soft_validator, axis=1)
         return z
 
+    def full_set(self, max_month=None):
+        if max_month is not None:
+            if set(range(190, max(self._obj.month_id)+1)) != set(range(190, max_month+1)):
+                return False
+            else:
+                return True
+        else:
+            av_months = set(fetch_ids('month')[0])
+            if set(range(190,max(self._obj.month_id)+1)) != av_months:
+                return False
+            else:
+                return True
+
+
+@pd.api.extensions.register_dataframe_accessor("cm")
+class CMAccessor(CAccessor, MAccessor):
+    def __init__(self, pandas_obj):
+        super().__init__(pandas_obj)
+
+    @property
+    def is_unique(self):
+        uniques = self._obj[['c_id', 'month_id']].drop_duplicates().shape[0]
+        totals = self._obj.shape[0]
+        if uniques == totals:
+            return True
+        return False
+
+    def is_panel(self):
+        """
+        Tests if the
+        """
+        test_square = self._obj.copy()
+        min_month = test_square.month_id.min()
+        max_month = test_square.month_id.max()
+
+        for cid in test_square.c_id.unique():
+            test_country = test_square[test_square.c_id == cid]
+            if test_country.month_id.min() > min_month and test_country.month_id.min() > Country(cid).month_start:
+                return False
+            if test_country.month_id.max() < max_month and test_country.month_id.max() < Country(cid).month_end:
+                return False
+            if len(test_country.index) != max_month - min_month + 1:
+                low = Country(cid).month_start if Country(cid).month_start > min_month else min_month
+                high = Country(cid).month_end if Country(cid).month_end < max_month else max_month
+                if high - low + 1 != len(test_country.index):
+                    return False
+        return True
+
+    def is_complete_time_series(self, min_month=190, max_month=621):
+        test_square = self._obj.copy()
+        if not self.is_panel():
+            return False
+        if min_month != test_square.month_id.min() or max_month != test_square.month_id.max():
+            return False
+        return True
+
+    def is_complete_cross_section(self, in_africa=False, in_me=False):
+        test_square = self._obj.copy()
+        if not self.is_panel():
+            return False
+        av_c, _ = fetch_ids('country')
+        min_month = test_square.month_id.min()
+        max_month = test_square.month_id.max()
+        av_c = [Country(i) for i in av_c]
+        av_c = [i for i in av_c if min_month <= i.month_end and max_month >= i.month_start]
+        subset_c = []
+        if in_africa: subset_c += [i for i in av_c if i.in_africa]
+        if in_me: subset_c += [i for i in av_c if i.in_me]
+        if len(subset_c) == 0: subset_c = av_c
+        subset_c = set(i.id for i in subset_c)
+
+        if set(test_square.c_id.unique()) == subset_c:
+            return True
+        return False
+
+    def full_set(self, in_africa=False, in_me=False, min_month=190, max_month=621):
+        full_cs = self.is_complete_cross_section(in_africa=in_africa, in_me=in_me)
+        full_ts = self.is_complete_time_series(min_month=min_month, max_month=max_month)
+        return full_cs and full_ts
+
+    @classmethod
+    def from_year_month_gwcode(cls, df, year_col='year', month_col='month', gw_col='gwcode'):
+        z = df.copy()
+        z = super().from_year_month(z, year_col=year_col, month_col=month_col)
+        z = super().from_gwcode(z, gw_col=gw_col)
+        return z
+
+    @classmethod
+    def from_year_month_iso(cls, df, year_col='year', month_col='month', iso_col='iso'):
+        z = df.copy()
+        z = super().from_year_month(z, year_col=year_col, month_col=month_col)
+        z = super().from_iso(z, iso_col=iso_col)
+        return z
 
 @pd.api.extensions.register_dataframe_accessor("pgm")
 class PGMAccessor(PgAccessor, MAccessor):
@@ -304,3 +452,38 @@ class PGMAccessor(PgAccessor, MAccessor):
         z['valid_year_month_latlon'] = z.valid_year_month & z.valid_latlon
         return z
 
+    def full_set(self, land_only=True):
+        pg_full_set = super(PgAccessor, self).full_set(land_only)
+        return pg_full_set
+
+    def is_panel(self):
+        test_square = self._obj
+        min_month = test_square.month_id.min()
+        max_month = test_square.month_id.max()
+        if len(test_square.month_id.unique()) != max_month - min_month + 1:
+            return False
+        first_panel = set(test_square[test_square.month_id == min_month].pg_id.unique())
+        for month in test_square.month_id.unique():
+            cur_panel = set(test_square[test_square.month_id == month].pg_id.unique())
+            if first_panel != cur_panel:
+                return False
+        return True
+
+    def is_complete_cross_section(self, only_views_cells=True):
+        x = self._obj
+        if not self.is_square():
+            return False
+        vc_len = len(fetch_ids('priogrid')[0]) if only_views_cells else 259200
+        if len(x.pg_id.unique()) == vc_len:
+            return True
+        return False
+
+    def is_complete_time_series(self, min_month=190, max_month=621):
+        x = self._obj
+        if not self.is_panel():
+            return False
+        if x.test_square.month_id.min() != min_month:
+            return False
+        if x.test_square.month_id.max() != max_month:
+            return False
+        return True

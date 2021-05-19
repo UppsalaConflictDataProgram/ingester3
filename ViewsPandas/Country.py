@@ -12,6 +12,7 @@ class Country(object):
         self.__populate_attributes()
 
     @staticmethod
+    @inner_cache.memoize(typed=True, expire=600, tag="country_list")
     def __validate_id(id):
         id = int(id)
         available_countries, _ = fetch_ids('country')
@@ -28,13 +29,14 @@ class Country(object):
                f'gwcode:{self.gwcode}, ' \
                f'iso:{self.isoab}, ' \
                f'capital:{self.capname}, ' \
-               f'in_africa:{self.in_africa}'
+               f'in_africa:{self.in_africa}, ' \
+               f'in_me:{self.in_me}'
 
     @staticmethod
     @inner_cache.memoize(typed=True, expire=600, tag="country_info")
     def __fetch_descriptors():
         columns = ['id', 'name', 'gwcode', 'isonum', 'isoab', 'capname',
-                   'caplat', 'caplong', 'in_africa',
+                   'caplat', 'caplong', 'in_africa', 'in_me',
                    'month_start', 'month_end']
         descriptors = fetch_data(loa_table='country', columns=columns)
         return descriptors
@@ -99,6 +101,7 @@ class Country(object):
         self.caplat = descriptors.caplat
         self.caplong = descriptors.caplong
         self.in_africa = bool(descriptors.in_africa)
+        self.in_me = bool(descriptors.in_me)
         self.month_start = int(descriptors.month_start)
         self.month_end = int(descriptors.month_end)
 
