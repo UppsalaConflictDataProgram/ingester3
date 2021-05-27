@@ -1,7 +1,7 @@
 from .Priogrid import Priogrid
 from .ViewsMonth import ViewsMonth
 from .Country import Country
-from .scratch import fetch_ids
+from .scratch import fetch_ids, fetch_ids_df
 import pandas as pd
 import numpy as np
 import warnings
@@ -45,7 +45,7 @@ class CAccessor:
         :return:
         """
         try:
-            _ = Country(row.c_id).name
+            _ = Country(row.c_id).id
             ok = True
         except ValueError:
             ok = False
@@ -108,13 +108,27 @@ class CAccessor:
         return z
 
     @classmethod
+    def new_structure(cls):
+        return pd.DataFrame(fetch_ids_df('country').rename(columns={'id': 'c_id'})[['c_id']])
+
+    @classmethod
+    def new_africa(cls):
+        africa = CAccessor.new_structure()
+        return africa[africa.c.in_africa]
+
+    @classmethod
+    def new_me(cls):
+        me = CAccessor.new_structure()
+        return me[me.c.in_me]
+
+    @classmethod
     def from_gwcode(cls, df, gw_col='gwcode'):
         z = df.copy()
         z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         return z
 
     def db_id(self):
-        pass
+        return self._obj
 
     def full_set(self):
         available_countries, _ = fetch_ids('country')
@@ -174,6 +188,10 @@ class PgAccessor:
             return True
         return False
 
+    @classmethod
+    def new_structure(cls):
+        return pd.DataFrame(fetch_ids_df('priogrid').rename(columns={'id': 'pg_id'})[['pg_id']])
+
     @property
     def lat(self):
         """
@@ -207,6 +225,8 @@ class PgAccessor:
         """
         return self._obj.apply(lambda x: Priogrid(x.pg_id).col, axis=1)
 
+    def db_id(self):
+        return self._obj
 
     @classmethod
     def from_latlon(cls, df, lat_col='lat', lon_col='lon'):
@@ -256,7 +276,7 @@ class PgAccessor:
             return True
         return False
 
-    def is_square(self, only_views_cells=False):
+    def get_bbox(self, only_views_cells=False):
         test_square = self._obj
         min_row = test_square.pg.row.min()
         max_row = test_square.pg.row.max()
@@ -270,7 +290,15 @@ class PgAccessor:
         if only_views_cells:
             views_cells, _ = fetch_ids('priogrid')
             square = set(views_cells).intersection(square)
-        return square == set(test_square.pg_id)
+        return square
+
+    def is_bbox(self, only_views_cells=False):
+        square = self.get_bbox(only_views_cells=only_views_cells)
+        return square == set(self._obj.pg_id)
+
+    def fill_bbox(self):
+        return pd.DataFrame({'pg_id': list(self.get_bbox())}).merge(self._obj, how='left', on='pg_id')
+
 
 
 @pd.api.extensions.register_dataframe_accessor("m")
@@ -313,6 +341,14 @@ class MAccessor():
                                                                        month=row[month_col]).id,
                                 axis=1)
         return z
+
+    def db_id(self):
+        return self._obj
+
+    def fill_panel_gaps(self):
+        extent = pd.DataFrame({'month_id': range(self._obj.month_id.min(), self._obj.month_id.max() + 1)})
+        extent = extent.merge(self._obj, how='left', on=['month_id'])
+        return extent
 
     @staticmethod
     def __soft_validate_month(row, year_col, month_col):
@@ -386,6 +422,36 @@ class CMAccessor(CAccessor, MAccessor):
             return False
         return True
 
+    def expand_country_months(self, min_month = None, max_month = None):
+        if min_month is None:
+            min_month = 1
+        if max_month is None:
+            max_month = 999
+        test_square = self._obj.copy()
+        extents = pd.DataFrame()
+        for cid in test_square.c_id:
+            low = Country(cid).month_start if Country(cid).month_start > min_month else min_month
+            high = Country(cid).month_end if Country(cid).month_end < max_month else max_month
+            extents = extents.append(pd.DataFrame({'c_id': cid, 'month_id':range(low, high+1)}))
+        try:
+            extents = extents.merge(self._obj, how='left', on=['c_id', 'month_id'])
+        except KeyError:
+            extents = extents.merge(self._obj, how='left', on=['c_id'])
+        if 'cm_id' in self._obj:
+            extents = CMAccessor.__db_id(extents)
+        return extents
+
+    def fill_panel_gaps(self):
+        min_month = self._obj.month_id.min()
+        max_month = self._obj.month_id.max()
+        return self.expand_country_months(min_month=min_month,max_month=max_month)
+
+    def fill_spatial_gaps(self):
+        month_list = self._obj.month_id
+        z = self.fill_panel_gaps()
+        z = z[z.month_id.isin(month_list)]
+        return z
+
     def is_complete_cross_section(self, in_africa=False, in_me=False):
         test_square = self._obj.copy()
         if not self.is_panel():
@@ -404,6 +470,25 @@ class CMAccessor(CAccessor, MAccessor):
         if set(test_square.c_id.unique()) == subset_c:
             return True
         return False
+
+    @classmethod
+    def new_structure(cls, max_month=621):
+        structure = fetch_ids_df('country_month').rename(columns={'country_id':'c_id'})[['c_id','month_id']]
+        return structure[structure.month_id <= max_month]
+
+    @classmethod
+    def new_africa(cls):
+        ids = CMAccessor.new_structure()
+        africa = CAccessor.new_structure()
+        africa = africa[africa.c.in_africa].c_id
+        return ids[ids.c_id.isin(africa)]
+
+    @classmethod
+    def new_middle_east(cls):
+        ids = CMAccessor.new_structure()
+        me = CAccessor.new_structure()
+        me = me[me.c.in_me].c_id
+        return ids[ids.c_id.isin(me)]
 
     def full_set(self, in_africa=False, in_me=False, min_month=190, max_month=621):
         full_cs = self.is_complete_cross_section(in_africa=in_africa, in_me=in_me)
@@ -424,10 +509,24 @@ class CMAccessor(CAccessor, MAccessor):
         z = super().from_iso(z, iso_col=iso_col)
         return z
 
+    @staticmethod
+    def __db_id(z):
+        #z = self._obj.copy()
+        db_ids = fetch_ids_df('country_month')[['id', 'country_id', 'month_id']]
+        z['cm_id'] = z.merge(db_ids, left_on=['c_id', 'month_id'], right_on=['country_id', 'month_id']).id
+        return z
+
+    def db_id(self):
+        return CMAccessor.__db_id(self._obj)
+
 @pd.api.extensions.register_dataframe_accessor("pgm")
 class PGMAccessor(PgAccessor, MAccessor):
     def __init__(self, pandas_obj):
         super().__init__(pandas_obj)
+
+    @classmethod
+    def new_structure(cls):
+        return pd.DataFrame(fetch_ids_df('priogrid_month').rename(columns={'id': 'pg_id'})[['pg_id','month_id']])
 
     @property
     def is_unique(self):
@@ -471,7 +570,7 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     def is_complete_cross_section(self, only_views_cells=True):
         x = self._obj
-        if not self.is_square():
+        if not self.is_bbox(only_views_cells=only_views_cells):
             return False
         vc_len = len(fetch_ids('priogrid')[0]) if only_views_cells else 259200
         if len(x.pg_id.unique()) == vc_len:
@@ -487,3 +586,40 @@ class PGMAccessor(PgAccessor, MAccessor):
         if x.test_square.month_id.max() != max_month:
             return False
         return True
+
+
+    def fill_panel_gaps(self):
+        extent1 = pd.DataFrame({'month_id': range(self._obj.month_id.min(), self._obj.month_id.max() + 1), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id})
+        extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
+        extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
+        if 'pgm_id' in self._obj:
+            extent = PGMAccessor.__db_id(extent)
+        return extent
+
+    def fill_spatial_gaps(self):
+        extent1 = pd.DataFrame({'pg_id': self._obj.pg_id, 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id})
+        extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
+        extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
+        if 'pgm_id' in self._obj:
+            extent = PGMAccessor.__db_id(extent)
+        return extent
+
+    def fill_bbox(self):
+        extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id})
+        extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
+        extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
+        if 'pgm_id' in self._obj:
+            extent = PGMAccessor.__db_id(extent)
+        return extent
+
+    @staticmethod
+    def __db_id(z):
+        db_ids = fetch_ids_df('priogrid_month')[['id', 'priogrid_gid', 'month_id']]
+        z['pgm_id'] = z.merge(db_ids, left_on=['pg_id', 'month_id'], right_on=['priogrid_gid', 'month_id']).id
+        return z
+
+    def db_id(self):
+        return PGMAccessor.__db_id(self._obj)

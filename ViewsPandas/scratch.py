@@ -108,7 +108,7 @@ def fetch_ids(loa_table):
     primary_keys, foreign_keys = fetch_keys(loa_table)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=sa.exc.SAWarning)
-        query_pk = sa.select(primary_keys).order_by(primary_keys[0])
+        query_pk = sa.select(primary_keys)
         query_fk = sa.select(foreign_keys)
         if len(foreign_keys)>0:
             query_fk = query_fk.order_by(primary_keys[0])
@@ -118,6 +118,14 @@ def fetch_ids(loa_table):
             pk_data = [i[0] for i in pk_data]
             fk_data = conn.execute(query_fk).fetchall()
             return pk_data, fk_data
+
+@cache.memoize(typed=True, expire=None, tag="fetch_ids_df")
+def fetch_ids_df(loa_table):
+    primary_keys, foreign_keys = fetch_keys(loa_table)
+    keys = primary_keys+foreign_keys
+    query_keys = sa.select(keys)
+    with views_engine.connect() as conn:
+        return pd.read_sql(query_keys, con=conn)
 
 
 def fetch_data(loa_table, columns=None):
