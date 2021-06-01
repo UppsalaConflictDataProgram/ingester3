@@ -3,7 +3,6 @@ from .ViewsMonth import ViewsMonth
 from .Country import Country
 from .scratch import fetch_ids, fetch_ids_df
 import pandas as pd
-import numpy as np
 import warnings
 from functools import partial
 
@@ -39,10 +38,6 @@ class CAccessor:
     def __soft_validate(row):
         """
         Soft-validate a df containing lat/lon values. Will produce a valid_latlon column to the existing dataframe
-        :param df:
-        :param lat_col:
-        :param lon_col:
-        :return:
         """
         try:
             _ = Country(row.c_id).id

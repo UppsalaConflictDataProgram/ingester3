@@ -2,11 +2,13 @@ import sqlalchemy as sa
 import warnings
 import pandas as pd
 from diskcache import Cache
+from .config import source_db_path
+from .config import source_cache_path
 
-cache = Cache('local')
+cache = Cache(source_cache_path)
 
-source_db = 'postgres://mihai@hermes:5432/fallback3'
-views_engine = sa.create_engine(source_db)
+#source_db = 'postgres://mihai@hermes:5432/fallback3'
+views_engine = sa.create_engine(source_db_path)
 
 meta = sa.MetaData(schema='prod', bind=views_engine)
 
@@ -69,11 +71,11 @@ def fetch_columns(loa_table):
                 min_value = conn.execute(sa.func.min(column)).fetchone()[0]
                 max_value = conn.execute(sa.func.max(column)).fetchone()[0]
                 try:
-                    mean_value = float(conn.execute(sa.func.avg(column)).fetchone()[0])
+                    mean_value = float(conn.execute(sa.func.avg()).fetchone()[0])
                 except Exception:
                     mean_value = None
                 try:
-                    col_type = column.type.python_type
+                    col_type = column.type.python_typecolumn
                 except NotImplementedError:
                     col_type = 'PostGIS'
                 mapper += [{'table': table['table'],

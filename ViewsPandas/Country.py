@@ -37,7 +37,7 @@ class Country(object):
     def __fetch_descriptors():
         columns = ['id', 'name', 'gwcode', 'isonum', 'isoab', 'capname',
                    'caplat', 'caplong', 'in_africa', 'in_me',
-                   'month_start', 'month_end']
+                   'month_start', 'month_end', 'centroidlat', 'centroidlong']
         descriptors = fetch_data(loa_table='country', columns=columns)
         return descriptors
 
@@ -104,6 +104,8 @@ class Country(object):
         self.in_me = bool(descriptors.in_me)
         self.month_start = int(descriptors.month_start)
         self.month_end = int(descriptors.month_end)
+        self.lat = descriptors.centroidlat
+        self.lon = descriptors.centroidlon
 
 
 
