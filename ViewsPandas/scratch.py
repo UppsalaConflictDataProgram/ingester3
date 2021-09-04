@@ -75,9 +75,9 @@ def fetch_columns(loa_table):
                 except Exception:
                     mean_value = None
                 try:
-                    col_type = column.type.python_typecolumn
+                    col_type = column.type.python_type
                 except NotImplementedError:
-                    col_type = 'PostGIS'
+                    col_type = None
                 mapper += [{'table': table['table'],
                             'column_name': column.name,
                             'sa_column': column,

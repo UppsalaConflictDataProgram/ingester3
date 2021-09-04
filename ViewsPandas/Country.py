@@ -105,7 +105,7 @@ class Country(object):
         self.month_start = int(descriptors.month_start)
         self.month_end = int(descriptors.month_end)
         self.lat = descriptors.centroidlat
-        self.lon = descriptors.centroidlon
+        self.lon = descriptors.centroidlong
 
 
 

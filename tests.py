@@ -2,7 +2,7 @@ import pandas as pd
 from ViewsPandas.extensions import *
 from ViewsPandas.Country import Country
 from warnings import catch_warnings
-
+import numpy as np
 
 # Test the m accessor
 
