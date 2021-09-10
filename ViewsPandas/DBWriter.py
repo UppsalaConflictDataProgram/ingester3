@@ -261,6 +261,9 @@ class DBWriter(object):
 
 
     def new_transfer(self, tname):
+
+        cache_manager(clear=False)
+
         if self.recipe is None:
             self.publish()
 
@@ -334,6 +337,9 @@ class DBWriter(object):
 
 
     def old_transfer(self):
+
+        cache_manager(clear=False)
+
         if self.recipe is None:
             self.publish()
 

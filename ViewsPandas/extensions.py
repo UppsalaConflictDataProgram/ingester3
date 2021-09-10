@@ -1,7 +1,7 @@
 from .Priogrid import Priogrid
 from .ViewsMonth import ViewsMonth
 from .Country import Country
-from .scratch import fetch_ids, fetch_ids_df
+from .scratch import fetch_ids, fetch_ids_df, cache_manager
 import pandas as pd
 import warnings
 from functools import partial
@@ -19,6 +19,7 @@ class CAccessor:
         Initializes the accessor and validates that it really is a priogrid df
         :param pandas_obj: A pandas DataFrame containing
         """
+        cache_manager(False)
         self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.c_id = self._obj.c_id.astype('int')
@@ -151,6 +152,7 @@ class PgAccessor:
         Initializes the accessor and validates that it really is a priogrid df
         :param pandas_obj: A pandas DataFrame containing
         """
+        cache_manager(False)
         self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.pg_id = self._obj.pg_id.astype('int')
@@ -299,6 +301,7 @@ class PgAccessor:
 @pd.api.extensions.register_dataframe_accessor("m")
 class MAccessor():
     def __init__(self, pandas_obj):
+        cache_manager(False)
         self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.month_id = self._obj.month_id.astype('int')

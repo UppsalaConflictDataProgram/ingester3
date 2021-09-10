@@ -15,21 +15,28 @@ meta = sa.MetaData(schema='prod', bind=views_engine)
 def cache_manager(clear = False):
     """If the database timestamp is different from the local timestamp,
     flush the cache, and store a new cache timestamp cookie"""
-    timestamp_table = sa.Table('update_stamp',
-                               sa.MetaData(),
-                               schema='prod_metadata',
-                               autoload=True,
-                               autoload_with=views_engine)
-    query = sa.select([timestamp_table])
-    with views_engine.connect() as conn:
-        db_stamp = conn.execute(query).fetchone()[0]
+    try:
+        timestamp_table = sa.Table('update_stamp',
+                                   sa.MetaData(),
+                                   schema='prod_metadata',
+                                   autoload=True,
+                                   autoload_with=views_engine)
+        query = sa.select([timestamp_table])
+        with views_engine.connect() as conn:
+            db_stamp = conn.execute(query).fetchone()[0]
+    except sa.exc.OperationalError:
+        db_stamp = 0
+        warnings.warn("No database connection! Will try to use cache for read-only ops as much as I can")
 
     try:
         with open('timestamp.cache', mode='r') as f: local_stamp = int(f.read())
     except FileNotFoundError:
         local_stamp = 0
 
-    if local_stamp != db_stamp or clear:
+    if local_stamp+db_stamp == 0:
+        raise ConnectionError("Cannot connect to the DB and you have NO working cache!")
+
+    if (local_stamp < db_stamp) or (db_stamp > 0 and clear):
         cache.clear(retry=True)
         with open('timestamp.cache',mode='w') as f: f.write(str(db_stamp))
 
