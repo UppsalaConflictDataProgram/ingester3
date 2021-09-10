@@ -2,6 +2,7 @@ from .config import source_db_path
 from .scratch import fetch_columns, flash_fetch_definitions, cache_manager
 import sqlalchemy as sa
 import warnings
+import numpy as np
 import pandas as pd
 import psycopg2
 import re
@@ -35,7 +36,24 @@ class DBWriter(object):
             return True
         return False
 
+    def __validate(self, pandas_obj, level):
+        key_col_name = level+'_id'
+        np.dtype('int_')
+
+        if key_col_name not in pandas_obj.columns:
+            raise KeyError(f'No {key_col_name} is not in the data!')
+
+        if not(pandas_obj.shape[0] == pandas_obj[key_col_name].unique().shape[0]):
+            raise KeyError(f'Key column : {key_col_name} is not unique!')
+
+        if pandas_obj[key_col_name].dtype != np.dtype('int_'):
+            raise KeyError(f'Key column : {key_col_name} is not an integer!')
+
+
     def __init__(self, pandas_obj, level='cm'):
+
+        self.__validate(pandas_obj, level)
+
         self.__matching_pattern =  re.compile('[\W]+')
         self.level = level.lower().strip()
         self.tablespace = self.__get_tablespace()

@@ -209,19 +209,3 @@ def fetch_data(loa_table, columns=None):
         #data_out = con.execute(text_query).fetchall()
         data_out = pd.read_sql(text_query,con)
         return data_out
-
-
-
-#cache_manager(False)
-#pk, fk = fetch_keys('country_month')
-#print (pk,fk)
-# pk_data, fk_data = fetch_ids('country_month')
-# print(pk_data, fk_data)
-#mapper = fetch_ids('country_month')
-#print(mapper)
-#print('1')
-#data = fetch_data(loa_table='country_month', columns = ['acled_FAT_st_agr','acled_FAT_st_agr','acled_count_st_agr'])
-#print('2')
-#data_out = fetch_data(loa_table = 'country', columns=['name','gwcode','gweyear','isoab'])
-# print("*"*12)
-#fetch_columns('priogrid_month')
