@@ -27,7 +27,6 @@ class ColumnMapper:
     new_table: bool = False
 
 class DBWriter(object):
-
     def __match_names(self, a, b):
         a1 = self.__matching_pattern.sub('', a).lower()
         a2 = self.__matching_pattern.sub('', b).lower()
@@ -48,6 +47,9 @@ class DBWriter(object):
 
         if pandas_obj[key_col_name].dtype != np.dtype('int_'):
             raise KeyError(f'Key column : {key_col_name} is not an integer!')
+
+        if pandas_obj[key_col_name].isnull().sum()>0:
+            raise KeyError(f'Key column has nulls!')
 
 
     def __init__(self, pandas_obj, level='cm'):
@@ -135,7 +137,7 @@ class DBWriter(object):
             column_match = None
             for tbl_column in tbl_colset:
                 if self.__match_names(tbl_column['column_name'],df_column):
-                    print("*>",df_column)
+                    #print("*>",df_column)
                     origin_type = self.__get_col_python_type(self.df[df_column])
                     destination_type=tbl_column['type']
                     if origin_type == destination_type:
@@ -321,7 +323,6 @@ class DBWriter(object):
         FOREIGN KEY({self.tablespace}_id)
 	  REFERENCES prod.{self.tablespace}(id);
         """)
-
         print(sql_copy)
 
         with self.engine.connect() as con:
