@@ -52,6 +52,30 @@ def fetch_children(loa_table, views_engine = views_engine):
         return data
 
 
+def flash_fetch_definitions(schema,table):
+    mapper = []
+    conn = views_engine.connect()
+    new_table = sa.Table(table,
+                         sa.MetaData(),
+                         schema=schema,
+                         autoload=True,
+                         autoload_with=views_engine)
+    inspector = sa.inspect(new_table)
+    #print(">",inspector)
+    for column in inspector.c:
+        #print (column)
+        try:
+            col_type = column.type.python_type
+        except NotImplementedError:
+            col_type = None
+        mapper += [{'column_name': column.name,
+                    'sa_column': column,
+                    'type': col_type}]
+    conn.close()
+    return mapper
+
+
+
 @cache.memoize(typed=True, expire=None, tag='fetch_columns')
 def fetch_columns(loa_table):
     tables = fetch_children(loa_table)
@@ -68,8 +92,12 @@ def fetch_columns(loa_table):
                                     autoload_with=views_engine)
             inspector = sa.inspect(views_tables)
             for column in inspector.c:
-                min_value = conn.execute(sa.func.min(column)).fetchone()[0]
-                max_value = conn.execute(sa.func.max(column)).fetchone()[0]
+                try:
+                    min_value = conn.execute(sa.func.min(column)).fetchone()[0]
+                    max_value = conn.execute(sa.func.max(column)).fetchone()[0]
+                except sa.exc.ProgrammingError:
+                    min_value = None
+                    max_value = None
                 try:
                     mean_value = float(conn.execute(sa.func.avg()).fetchone()[0])
                 except Exception:
