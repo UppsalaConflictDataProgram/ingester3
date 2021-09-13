@@ -52,7 +52,12 @@ class DBWriter(object):
             raise KeyError(f'Key column has nulls!')
 
 
-    def __init__(self, pandas_obj, level='cm'):
+    def __init__(self, pandas_obj, level='cm',
+                 in_panel_wipe: bool = True,
+                 out_panel_wipe: bool = False,
+                 in_panel_zero: bool = True,
+                 out_panel_zero: bool = False
+    ):
 
         self.__validate(pandas_obj, level)
 
@@ -72,8 +77,14 @@ class DBWriter(object):
         # Recipe
         self.recipe = None
 
+        # Master Settings for wiping
+        self.in_panel_wipe = in_panel_wipe
+        self.out_panel_wipe = out_panel_wipe
+        self.in_panel_zero = in_panel_zero
+        self.out_panel_zero = out_panel_zero
+
         # Set writer index
-        other_ids = [i for i in list(self.df.columns) if (i != 'cm_id' and '_id' in i)]
+        other_ids = [i for i in list(self.df.columns) if (i != self.level+'_id' and '_id' in i)]
         self.df = self.df.drop(other_ids, axis=1)
 
 
@@ -151,7 +162,12 @@ class DBWriter(object):
                         destination_type=destination_type,
                         destination_table=tbl_column['table'],
                         same_type=match_type,
-                        new_table=False
+                        new_table=False,
+                        in_panel_wipe = self.in_panel_wipe,
+                        out_panel_wipe = self.out_panel_wipe,
+                        in_panel_zero = self.in_panel_zero,
+                        out_panel_zero = self.out_panel_wipe
+
                     )
                     #print(column_match)
                     column_mappers.append(column_match)
@@ -165,7 +181,11 @@ class DBWriter(object):
                         destination_type=origin_type,
                         destination_table='NEW',
                         same_type=True,
-                        new_table=True
+                        new_table=True,
+                        in_panel_wipe=self.in_panel_wipe,
+                        out_panel_wipe=self.out_panel_wipe,
+                        in_panel_zero=self.in_panel_zero,
+                        out_panel_zero=self.out_panel_wipe
                 )
                 column_mappers.append(column_match)
 
@@ -188,7 +208,8 @@ class DBWriter(object):
         self.df.head(0).to_sql(name=self.tname_temp,
                                schema='loader',
                                con=self.engine,
-                               index=False)
+                               index=False,
+                               if_exists='replace')
         #, con = cnx, index = False)  # head(0) uses only the header
         # set index=False to avoid bringing the dataframe index in as a column
 
@@ -213,6 +234,7 @@ class DBWriter(object):
         if try_simple:
             with self.engine.connect() as con:
                 self.df.to_sql(con=con, schema='loader', name=self.tname_temp, if_exists="append", index=False)
+
         return 0
 
     def del_temp(self):
@@ -261,6 +283,8 @@ class DBWriter(object):
         else:
             inner_where_query = ''
 
+        print(inner_where_query)
+
         return inner_where_query
 
     def __get_zero_columns(self, which_columns, inside = True):
@@ -280,7 +304,38 @@ class DBWriter(object):
         return zero_inside, types_zero_inside
 
 
-    def new_transfer(self, tname):
+    def __tname_checker(self, tname, drop_table = False):
+
+        print('waite')
+
+        not_allowed_tables = set([i['table'] for i in fetch_columns(self.tablespace)])
+
+        if self.level not in self.tablespace[-4:]:
+            tname = tname + '_' + self.level
+
+        if tname in not_allowed_tables:
+            if drop_table:
+                warnings.warn(f"Table {tname} exists in table space, and will be wiped!")
+            else:
+                tname = self.tname_temp[0:9] + tname
+                warnings.warn(f"Table {tname} exists in table space, and will not be wiped. "
+                              f"Instead we will use a randomly generated prefix : {tname}")
+        return tname
+
+    def del_spurios_loaded_data(self):
+        if self.time_extent is not None or self.space_extent is not None:
+            sql = f"""
+              DELETE FROM loader.{self.tname_temp} WHERE {self.level}_id::bigint NOT IN (
+             SELECT id
+             FROM prod.{self.tablespace} base
+             {self.__inner_where_query()} )
+             """
+            with self.engine.connect() as con:
+                trans = con.begin()
+                con.execute(sql)
+                trans.commit()
+
+    def new_transfer(self, tname, drop_table = False):
 
         cache_manager(clear=False)
 
@@ -292,6 +347,8 @@ class DBWriter(object):
 
         if len(new_table_ids) == 0:
             return 0
+
+        tname = self.__tname_checker(tname, drop_table = drop_table)
 
         zero_inside, types_zero_inside =  self.__get_zero_columns(new_table_ids)
         zero_outside, types_zero_outside = self.__get_zero_columns(new_table_ids, False)
@@ -356,7 +413,6 @@ class DBWriter(object):
 
 
     def old_transfer(self):
-
         cache_manager(clear=False)
 
         if self.recipe is None:
@@ -410,3 +466,14 @@ class DBWriter(object):
                     This column was not modified in the database. 
                     Try casting it in Pandas or changing the DB column to a larger cast (e.g. TEXT).""")
                     trans.rollback()
+
+    def transfer(self, tname='extension', drop_table_if_needed=False):
+        self.write_temp()
+        self.del_spurios_loaded_data()
+        self.new_transfer(tname, drop_table = drop_table_if_needed)
+        self.old_transfer()
+        #self.del_temp()
+        # Destruct the recipe so that the object forces itself recreated.
+        self.recipe = None
+
+

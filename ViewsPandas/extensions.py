@@ -6,6 +6,7 @@ import pandas as pd
 import warnings
 from functools import partial
 
+pd.options.mode.chained_assignment = None
 
 @pd.api.extensions.register_dataframe_accessor("c")
 class CAccessor:
@@ -340,6 +341,19 @@ class MAccessor():
                                 axis=1)
         return z
 
+    @classmethod
+    def from_datetime(cls, df, datetime_col='datetime'):
+        z = df.copy()
+        z['temp_year_col'] = z[datetime_col].dt.year
+        z['temp_month_col'] = z[datetime_col].dt.month
+        z['month_id'] = z.apply(lambda row: ViewsMonth.from_year_month(year=row['temp_year_col'],
+                                                                       month=row['temp_month_col']).id,
+                                axis=1)
+        del z["temp_year_col"]
+        del z["temp_month_col"]
+        return z
+
+
     def db_id(self):
         return self._obj
 
@@ -494,6 +508,21 @@ class CMAccessor(CAccessor, MAccessor):
         return full_cs and full_ts
 
     @classmethod
+    def from_datetime_gwcode(cls, df, datetime_col='datetime', gw_col='gwcode'):
+        z = df.copy()
+        z = super().from_datetime(z, datetime_col=datetime_col)
+        z = super().from_gwcode(z, gw_col=gw_col)
+        return z
+
+    @classmethod
+    def from_datetime_iso(cls, df, datetime_col='datetime', iso_col='iso'):
+        z = df.copy()
+        z = super().from_datetime(z, datetime_col=datetime_col)
+        z = super().from_iso(z, iso_col=iso_col)
+        return z
+
+
+    @classmethod
     def from_year_month_gwcode(cls, df, year_col='year', month_col='month', gw_col='gwcode'):
         z = df.copy()
         z = super().from_year_month(z, year_col=year_col, month_col=month_col)
@@ -586,31 +615,39 @@ class PGMAccessor(PgAccessor, MAccessor):
         return True
 
 
-    def fill_panel_gaps(self):
+    def fill_panel_gaps(self, fill_value=None):
         extent1 = pd.DataFrame({'month_id': range(self._obj.month_id.min(), self._obj.month_id.max() + 1), 'key': 0})
         extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id})
         extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
         extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
         if 'pgm_id' in self._obj:
             extent = PGMAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
         return extent
 
-    def fill_spatial_gaps(self):
+    def fill_spatial_gaps(self, fill_value=None):
         extent1 = pd.DataFrame({'pg_id': self._obj.pg_id, 'key': 0})
         extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id})
         extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
         extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
         if 'pgm_id' in self._obj:
             extent = PGMAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
         return extent
 
-    def fill_bbox(self):
+    def fill_bbox(self, fill_value=None):
         extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
-        extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id})
-        extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
-        extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
+        extent2 = pd.DataFrame({'key': 0, 'month_id': list(self._obj.month_id.unique())})
+        extent3 = extent1.merge(extent2, on='key')[['pg_id','month_id']]
+        #print(extent.head())
+        extent = extent3.merge(self._obj, how='left', on=['pg_id','month_id'])
+        #print(extent.head())
         if 'pgm_id' in self._obj:
             extent = PGMAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
         return extent
 
     @staticmethod
@@ -621,3 +658,15 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     def db_id(self):
         return PGMAccessor.__db_id(self._obj)
+
+    def trim_to_db_extent(self):
+        try:
+            del self._obj.pgm_id
+        except AttributeError:
+            pass
+        z = self.db_id()
+        z = z[z.pgm_id.notna()]
+        z['pgm_id'] = z.pgm_id.astype('int64')
+        return z
+
+        """Special method to attach"""

@@ -3,7 +3,7 @@ from datetime import datetime
 class ViewsMonth(object):
 
     def __init__(self, id):
-        self.__validate(id)
+        self.__validate(int(id))
         self.id = int(id)
         self.month = self.id2month(id)
         self.year = self.id2year(id)

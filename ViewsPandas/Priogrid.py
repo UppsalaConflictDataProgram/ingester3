@@ -4,6 +4,7 @@ from typing import List
 class Priogrid(object):
 
     def __init__(self, id: int):
+        id = int(id)
         self.__validate_id(id)
         self.id = id
         self.row = self.id2row(id)

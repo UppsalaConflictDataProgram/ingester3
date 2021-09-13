@@ -8,6 +8,6 @@ What they do is this:
 - If above, changes the timestamp in the `metadata` to `NOW()`.
 - This timestamp in metadata determines the caching that `ingestion` clients use. If the metadata shows a DDL change, it regenerates the cache.
 
-**WITHOUT THESE TRIGGERS THE INGESTER DOES NOT WORK WELL AT ALL**
+**WITHOUT THESE TRIGGERS THE INGESTER DOES NOT WORK AT ALL**
 
 Note that there are two triggers, one for `DROP`s and one for `CREATE` or `ALTER`.
