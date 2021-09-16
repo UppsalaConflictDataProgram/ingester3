@@ -1,5 +1,6 @@
 from .config import source_db_path
 from .scratch import fetch_columns, flash_fetch_definitions, cache_manager
+from . import log
 import sqlalchemy as sa
 import warnings
 import numpy as np
@@ -26,7 +27,41 @@ class ColumnMapper:
     out_panel_zero: bool = False
     new_table: bool = False
 
+
 class DBWriter(object):
+
+    @log.log_ingester()
+    def __print(self, *args, **kwargs):
+        """
+        This is a verbose printer with a few extra tricks involved.
+        You can pass a msg kwarg that will be printed first, and a list of args and kwargs
+        Args will be
+        :param args: Arbitrary. If cannot be printed, will just be skipped.
+        :param kwargs: Arbitrary. If cannot be printed, will just be skipped.
+        :return:
+        """
+        if self.__verbose:
+
+            try:
+                print(kwargs['msg'])
+                del(kwargs['msg'])
+            except Exception:
+                pass
+
+            for arg in args:
+                try:
+                    print(arg)
+                except Exception:
+                    pass
+
+            for kwarg in kwargs:
+                try:
+                    print(f'{kwarg} :',end=' ')
+                    print(kwargs[kwarg])
+                except Exception:
+                    pass
+
+
     def __match_names(self, a, b):
         a1 = self.__matching_pattern.sub('', a).lower()
         a2 = self.__matching_pattern.sub('', b).lower()
@@ -51,13 +86,16 @@ class DBWriter(object):
         if pandas_obj[key_col_name].isnull().sum()>0:
             raise KeyError(f'Key column has nulls!')
 
-
+    @log.log_ingester()
     def __init__(self, pandas_obj, level='cm',
                  in_panel_wipe: bool = True,
                  out_panel_wipe: bool = False,
                  in_panel_zero: bool = True,
-                 out_panel_zero: bool = False
+                 out_panel_zero: bool = False,
+                 verbose: bool = False
     ):
+
+        self.__verbose = verbose
 
         self.__validate(pandas_obj, level)
 
@@ -190,14 +228,15 @@ class DBWriter(object):
                 column_mappers.append(column_match)
 
         self.recipe = column_mappers
+        self.__print(msg = "Recipes", recipe=self.recipe)
 
     def __rename_headers(self):
         for column in self.recipe:
-            print("Test", column.origin_name , column.destination_name)
+            self.__print(msg="Renaming Column:", origin=column.origin_name, destination=column.destination_name)
             if column.origin_name != column.destination_name:
-                print ("CHG: ", column.origin_name , column.destination_name)
+                #print ("CHG: ", column.origin_name , column.destination_name)
                 self.df = self.df.rename({column.origin_name:column.destination_name},axis=1)
-        print(self.df.head(3))
+        self.__print(msg="The table to be shipped to DB is : ",df=self.df.head(3))
 
     def write_temp(self):
         if self.recipe is None:
@@ -227,7 +266,7 @@ class DBWriter(object):
             raw_con.commit()
         except psycopg2.errors.BadCopyFileFormat:
             try_simple = True
-            print("Format is too complicated for a COPY fast write. Trying fallback alternative...")
+            self.__print(msg="Format is too complicated for a COPY fast write. Trying fallback alternative...")
         finally:
             cur.close()
             raw_con.close()
@@ -283,7 +322,7 @@ class DBWriter(object):
         else:
             inner_where_query = ''
 
-        print(inner_where_query)
+        #print(inner_where_query)
 
         return inner_where_query
 
@@ -304,9 +343,10 @@ class DBWriter(object):
         return zero_inside, types_zero_inside
 
 
+
     def __tname_checker(self, tname, drop_table = False):
 
-        print('waite')
+        #print('waite')
 
         not_allowed_tables = set([i['table'] for i in fetch_columns(self.tablespace)])
 
@@ -341,6 +381,7 @@ class DBWriter(object):
              {self.__inner_where_query()} )
              """
             with self.engine.connect() as con:
+                self.__print(msg="Query for spurious delete",spurious_sql=sql)
                 trans = con.begin()
                 con.execute(sql)
                 trans.commit()
@@ -403,7 +444,7 @@ class DBWriter(object):
         FOREIGN KEY({self.tablespace}_id)
 	  REFERENCES prod.{self.tablespace}(id);
         """)
-        print(sql_copy)
+        self.__print(msg = "Creating New Table using following SQL:", new_table_query = str(sql_copy))
 
         with self.engine.connect() as con:
             trans = con.begin()
@@ -426,7 +467,7 @@ class DBWriter(object):
                 except Exception:
                     return None
 
-    def __subquery_cast_to_db_type(self,column):
+    def __subquery_cast_to_db_type(self, column):
         recast = self.__get_db_type(column)
         if recast is None:
             recast = ''
@@ -444,7 +485,7 @@ class DBWriter(object):
         old_table_id = [i for i in self.recipe
                          if not i.new_table and '_id' not in i.destination_name]
         for column in old_table_id:
-            print(column)
+            self.__print(msg="Working on column:",column=column)
 
             update_queries = []
 
@@ -477,10 +518,11 @@ class DBWriter(object):
                               WHERE dest."{table_primary_key}" = base."{self.level}_id" """]
 
             with self.engine.connect() as con:
-                print(update_queries)
+
                 trans = con.begin()
                 try:
                     for query in update_queries:
+                        self.__print(msg="Updating under the following system", update_query=str(query))
                         con.execute(query)
                     trans.commit()
                 except sa.exc.DataError:
@@ -491,17 +533,17 @@ class DBWriter(object):
                     trans.rollback()
 
     def transfer(self, tname='extension', drop_table_if_needed=False):
-        print("Temp Writer")
+        self.__print(msg = "Initializing the temporary writer using the fast routines...")
         self.write_temp()
-        print("Index temp table")
+        self.__print("Indexing the temporary table...")
         self.index_temp_table()
-        print("Spurios Wipe")
+        self.__print(msg = "Wiping Spurious Data...")
         self.del_spurios_loaded_data()
-        print("NewTableMaker")
+        self.__print(msg = "Creating New Table (If needed)...")
         self.new_transfer(tname, drop_table = drop_table_if_needed)
-        print("OldUpdater")
+        self.__print(msg = "Updating Tables Already in DB...")
         self.old_transfer()
-        print("Destructor")
+        self.__print(msg="Cleaning up...")
         self.del_temp()
         # Destruct the recipe so that the object forces itself recreated.
         self.recipe = None

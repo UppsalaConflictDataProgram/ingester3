@@ -469,15 +469,15 @@ class CYAccessor(CAccessor):
         return structure[structure.year_id <= max_year]
 
     @classmethod
-    def new_africa(cls):
-        ids = CYAccessor.new_structure()
+    def new_africa(cls, max_year=2050):
+        ids = CYAccessor.new_structure(max_year)
         africa = CAccessor.new_structure()
         africa = africa[africa.c.in_africa].c_id
         return ids[ids.c_id.isin(africa)]
 
     @classmethod
-    def new_middle_east(cls):
-        ids = CYAccessor.new_structure()
+    def new_middle_east(cls,max_year=2050):
+        ids = CYAccessor.new_structure(max_year)
         me = CAccessor.new_structure()
         me = me[me.c.in_me].c_id
         return ids[ids.c_id.isin(me)]
@@ -485,7 +485,10 @@ class CYAccessor(CAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('country_year')[['id', 'country_id', 'year_id']]
-        z['cy_id'] = z.merge(db_ids, left_on=['c_id', 'year_id'], right_on=['country_id', 'year_id']).id
+        z['cy_id'] = z.merge(db_ids,
+                             left_on=['c_id', 'year_id'],
+                             right_on=['country_id', 'year_id'],
+                             how='left').id
         return z
 
     def db_id(self):
@@ -642,7 +645,10 @@ class CMAccessor(CAccessor, MAccessor):
     def __db_id(z):
         #z = self._obj.copy()
         db_ids = fetch_ids_df('country_month')[['id', 'country_id', 'month_id']]
-        z['cm_id'] = z.merge(db_ids, left_on=['c_id', 'month_id'], right_on=['country_id', 'month_id']).id
+        z['cm_id'] = z.merge(db_ids,
+                             left_on=['c_id', 'month_id'],
+                             right_on=['country_id', 'month_id'],
+                             how='left').id
         return z
 
     def db_id(self):
@@ -719,7 +725,7 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     def fill_panel_gaps(self, fill_value=None):
         extent1 = pd.DataFrame({'month_id': range(self._obj.month_id.min(), self._obj.month_id.max() + 1), 'key': 0})
-        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id})
+        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id.unique()})
         extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
         extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
         if 'pgm_id' in self._obj:
@@ -755,7 +761,10 @@ class PGMAccessor(PgAccessor, MAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('priogrid_month')[['id', 'priogrid_gid', 'month_id']]
-        z['pgm_id'] = z.merge(db_ids, left_on=['pg_id', 'month_id'], right_on=['priogrid_gid', 'month_id']).id
+        z['pgm_id'] = z.merge(db_ids,
+                              left_on=['pg_id', 'month_id'],
+                              right_on=['priogrid_gid', 'month_id'],
+                              how='left').id
         return z
 
     def db_id(self):
@@ -827,7 +836,7 @@ class PGYAccessor(PgAccessor):
 
     def fill_panel_gaps(self, fill_value=None):
         extent1 = pd.DataFrame({'year_id': range(self._obj.year_id.min(), self._obj.year_id.max() + 1), 'key': 0})
-        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id})
+        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id.unique()})
         extent = extent1.merge(extent2, on='key')[['pg_id','year_id']]
         extent = extent.merge(self._obj, how='left', on=['pg_id','year_id'])
         if 'pgy_id' in self._obj:
@@ -863,7 +872,9 @@ class PGYAccessor(PgAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('priogrid_year')[['id', 'priogrid_gid', 'year_id']]
-        z['pgy_id'] = z.merge(db_ids, left_on=['pg_id', 'year_id'], right_on=['priogrid_gid', 'year_id']).id
+        z['pgy_id'] = z.merge(db_ids, left_on=['pg_id', 'year_id'],
+                              right_on=['priogrid_gid', 'year_id'],
+                              how='left').id
         return z
 
     def db_id(self):
@@ -878,5 +889,3 @@ class PGYAccessor(PgAccessor):
         z = z[z.pgy_id.notna()]
         z['pgy_id'] = z.pgy_id.astype('int64')
         return z
-
-        """Special method to attach"""
