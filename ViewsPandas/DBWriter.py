@@ -322,6 +322,16 @@ class DBWriter(object):
                               f"Instead we will use a randomly generated prefix : {tname}")
         return tname
 
+    def index_temp_table(self):
+        sql = f"""
+        ALTER TABLE loader.{self.tname_temp} ADD PRIMARY KEY ({self.level}_id);
+        CREATE INDEX {self.tname_temp}_idx ON loader.{self.tname_temp}({self.level}_id);
+        """
+        with self.engine.connect() as con:
+            trans = con.begin()
+            con.execute(sql)
+            trans.commit()
+
     def del_spurios_loaded_data(self):
         if self.time_extent is not None or self.space_extent is not None:
             sql = f"""
@@ -353,26 +363,39 @@ class DBWriter(object):
         zero_inside, types_zero_inside =  self.__get_zero_columns(new_table_ids)
         zero_outside, types_zero_outside = self.__get_zero_columns(new_table_ids, False)
 
-        sql_copy = sa.text(f"""
-        DROP TABLE IF EXISTS prod.{tname};
-        CREATE TABLE prod.{tname} AS 
-        SELECT * FROM 
-        ((
+        inner_sql_bit = f'''
+        (
         SELECT base.id AS {self.tablespace}_id, 
                {self.__make_coalesce(new_table_ids,zero_inside)}
         FROM prod.{self.tablespace} base LEFT JOIN loader.{self.tname_temp} nnew
         ON (base.id::bigint = nnew.{self.level}_id::bigint)  
         {self.__inner_where_query()}
         )
-        UNION ALL
+        '''
+
+        outer_sql_bit = f'''
         (
         SELECT base.id AS {self.tablespace}_id, 
                {self.__make_coalesce(new_table_ids,zero_outside)}
         FROM prod.{self.tablespace} base LEFT JOIN loader.{self.tname_temp} nnew
         ON (base.id::bigint = nnew.{self.level}_id::bigint) 
-        {self.__inner_where_query(outside=True)}
-        )) merged_final WHERE merged_final.{self.tablespace}_id IS NOT NULL;
-        """).bindparams(**types_zero_inside, **types_zero_outside)
+        {self.__inner_where_query(outside=True)} 
+        )
+        '''
+
+        sql_sub_routine = inner_sql_bit
+        if self.time_extent is not None or self.space_extent is not None:
+            sql_sub_routine = inner_sql_bit + ' UNION ALL ' + outer_sql_bit
+
+        sql_copy = f"""
+        DROP TABLE IF EXISTS prod.{tname};
+        CREATE TABLE prod.{tname} AS 
+        SELECT * FROM 
+         ( 
+        {sql_sub_routine}
+         ) merged_final WHERE merged_final.{self.tablespace}_id IS NOT NULL;
+        """
+        sql_copy = sa.text(sql_copy).bindparams(**types_zero_inside, **types_zero_outside)
 
         sql_reference = sa.text(f"""
         ALTER TABLE prod.{tname} ADD PRIMARY KEY ({self.tablespace}_id);
@@ -468,11 +491,18 @@ class DBWriter(object):
                     trans.rollback()
 
     def transfer(self, tname='extension', drop_table_if_needed=False):
+        print("Temp Writer")
         self.write_temp()
+        print("Index temp table")
+        self.index_temp_table()
+        print("Spurios Wipe")
         self.del_spurios_loaded_data()
+        print("NewTableMaker")
         self.new_transfer(tname, drop_table = drop_table_if_needed)
+        print("OldUpdater")
         self.old_transfer()
-        #self.del_temp()
+        print("Destructor")
+        self.del_temp()
         # Destruct the recipe so that the object forces itself recreated.
         self.recipe = None
 

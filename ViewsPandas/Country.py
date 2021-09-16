@@ -37,7 +37,7 @@ class Country(object):
     def __fetch_descriptors():
         columns = ['id', 'name', 'gwcode', 'isonum', 'isoab', 'capname',
                    'caplat', 'caplong', 'in_africa', 'in_me',
-                   'month_start', 'month_end', 'centroidlat', 'centroidlong']
+                   'month_start', 'month_end', 'centroidlat', 'centroidlong', 'gwsyear', 'gweyear']
         descriptors = fetch_data(loa_table='country', columns=columns)
         return descriptors
 
@@ -90,6 +90,7 @@ class Country(object):
     def from_gwcode(cls, gwcode, month_id = None):
         return cls(cls.gwcode2id(gwcode, month_id))
 
+
     def __populate_attributes(self):
         descriptors = self.__fetch_descriptors()
         descriptors = descriptors[descriptors.id == self.id].iloc[0]
@@ -104,6 +105,8 @@ class Country(object):
         self.in_me = bool(descriptors.in_me)
         self.month_start = int(descriptors.month_start)
         self.month_end = int(descriptors.month_end)
+        self.year_start = int(descriptors.gwsyear)
+        self.year_end = int(descriptors.gweyear)
         self.lat = descriptors.centroidlat
         self.lon = descriptors.centroidlong
 

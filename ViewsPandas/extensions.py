@@ -392,6 +392,108 @@ class MAccessor():
                 return True
 
 
+@pd.api.extensions.register_dataframe_accessor("cy")
+class CYAccessor(CAccessor):
+    def __init__(self, pandas_obj):
+        super().__init__(pandas_obj)
+
+    @property
+    def is_unique(self):
+        uniques = self._obj[['c_id', 'year_id']].drop_duplicates().shape[0]
+        totals = self._obj.shape[0]
+        if uniques == totals:
+            return True
+        return False
+
+    def is_panel(self):
+        """
+        Tests if the
+        """
+        test_square = self._obj.copy()
+        min_year = test_square.year_id.min()
+        max_year = test_square.year_id.max()
+        for cid in test_square.c_id.unique():
+            test_country = test_square[test_square.c_id == cid]
+            if test_country.year_id.min() > min_year and test_country.year_id.min() > Country(cid).year_start:
+                return False
+            if test_country.year_id.max() < max_year and test_country.year_id.max() < Country(cid).year_end:
+                return False
+            if len(test_country.index) != max_year - min_year + 1:
+                low = Country(cid).year_start if Country(cid).year_start > min_year else min_year
+                high = Country(cid).year_end if Country(cid).year_end < max_year else max_year
+                if high - low + 1 != len(test_country.index):
+                    return False
+        return True
+
+    def is_complete_time_series(self, min_year=1980, max_year=2040):
+        test_square = self._obj.copy()
+        if not self.is_panel():
+            return False
+        if min_year != test_square.year_id.min() or max_year != test_square.year_id.max():
+            return False
+        return True
+
+    def expand_country_year(self, min_year = None, max_year = None):
+        if min_year is None:
+            min_year = 1945
+        if max_year is None:
+            max_year = 2050
+        test_square = self._obj.copy()
+        extents = pd.DataFrame()
+        for cid in test_square.c_id.unique():
+            low = Country(cid).year_start if Country(cid).year_start > min_year else min_year
+            high = Country(cid).year_end if Country(cid).year_end < max_year else max_year
+            extents = extents.append(pd.DataFrame({'c_id': cid, 'year_id':range(low, high+1)}))
+        extents = extents.merge(self._obj, how='left', on=['c_id', 'year_id'])
+        #except KeyError:
+        #    extents = extents.merge(self._obj, how='left', on=['c_id'])
+        if 'cy_id' in self._obj:
+            extents = CYAccessor.__db_id(extents)
+        return extents
+
+
+    def fill_panel_gaps(self):
+        min_year = self._obj.year_id.min()
+        max_year = self._obj.year_id.max()
+        return self.expand_country_year(min_year=min_year,max_year=max_year)
+
+    def fill_spatial_gaps(self):
+        year_list = self._obj.year_id.unique()
+        z = self.fill_panel_gaps()
+        z = z[z.year_id.isin(year_list)]
+        return z
+
+    @classmethod
+    def new_structure(cls, max_year=2050):
+        structure = fetch_ids_df('country_year').rename(columns={'country_id':'c_id'})[['c_id','year_id']]
+        return structure[structure.year_id <= max_year]
+
+    @classmethod
+    def new_africa(cls):
+        ids = CYAccessor.new_structure()
+        africa = CAccessor.new_structure()
+        africa = africa[africa.c.in_africa].c_id
+        return ids[ids.c_id.isin(africa)]
+
+    @classmethod
+    def new_middle_east(cls):
+        ids = CYAccessor.new_structure()
+        me = CAccessor.new_structure()
+        me = me[me.c.in_me].c_id
+        return ids[ids.c_id.isin(me)]
+
+    @staticmethod
+    def __db_id(z):
+        db_ids = fetch_ids_df('country_year')[['id', 'country_id', 'year_id']]
+        z['cy_id'] = z.merge(db_ids, left_on=['c_id', 'year_id'], right_on=['country_id', 'year_id']).id
+        return z
+
+    def db_id(self):
+        return CYAccessor.__db_id(self._obj)
+
+
+
+
 @pd.api.extensions.register_dataframe_accessor("cm")
 class CMAccessor(CAccessor, MAccessor):
     def __init__(self, pandas_obj):
@@ -441,14 +543,13 @@ class CMAccessor(CAccessor, MAccessor):
             max_month = 999
         test_square = self._obj.copy()
         extents = pd.DataFrame()
-        for cid in test_square.c_id:
+        for cid in test_square.c_id.unique():
             low = Country(cid).month_start if Country(cid).month_start > min_month else min_month
             high = Country(cid).month_end if Country(cid).month_end < max_month else max_month
             extents = extents.append(pd.DataFrame({'c_id': cid, 'month_id':range(low, high+1)}))
-        try:
-            extents = extents.merge(self._obj, how='left', on=['c_id', 'month_id'])
-        except KeyError:
-            extents = extents.merge(self._obj, how='left', on=['c_id'])
+        extents = extents.merge(self._obj, how='left', on=['c_id', 'month_id'])
+        #except KeyError:
+        #    extents = extents.merge(self._obj, how='left', on=['c_id'])
         if 'cm_id' in self._obj:
             extents = CMAccessor.__db_id(extents)
         return extents
@@ -459,7 +560,7 @@ class CMAccessor(CAccessor, MAccessor):
         return self.expand_country_months(min_month=min_month,max_month=max_month)
 
     def fill_spatial_gaps(self):
-        month_list = self._obj.month_id
+        month_list = self._obj.month_id.unique()
         z = self.fill_panel_gaps()
         z = z[z.month_id.isin(month_list)]
         return z
@@ -528,6 +629,7 @@ class CMAccessor(CAccessor, MAccessor):
         z = super().from_year_month(z, year_col=year_col, month_col=month_col)
         z = super().from_gwcode(z, gw_col=gw_col)
         return z
+
 
     @classmethod
     def from_year_month_iso(cls, df, year_col='year', month_col='month', iso_col='iso'):
@@ -627,8 +729,8 @@ class PGMAccessor(PgAccessor, MAccessor):
         return extent
 
     def fill_spatial_gaps(self, fill_value=None):
-        extent1 = pd.DataFrame({'pg_id': self._obj.pg_id, 'key': 0})
-        extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id})
+        extent1 = pd.DataFrame({'pg_id': self._obj.pg_id.unique(), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'month_id': self._obj.month_id.unique()})
         extent = extent1.merge(extent2, on='key')[['pg_id','month_id']]
         extent = extent.merge(self._obj, how='left', on=['pg_id','month_id'])
         if 'pgm_id' in self._obj:
@@ -667,6 +769,114 @@ class PGMAccessor(PgAccessor, MAccessor):
         z = self.db_id()
         z = z[z.pgm_id.notna()]
         z['pgm_id'] = z.pgm_id.astype('int64')
+        return z
+
+        """Special method to attach"""
+
+
+
+@pd.api.extensions.register_dataframe_accessor("pgy")
+class PGYAccessor(PgAccessor):
+    def __init__(self, pandas_obj):
+        super().__init__(pandas_obj)
+
+    @classmethod
+    def new_structure(cls):
+        return pd.DataFrame(fetch_ids_df('priogrid_year').rename(columns={'id': 'pg_id'})[['pg_id','year_id']])
+
+    @property
+    def is_unique(self):
+        uniques = self._obj[['pg_id', 'year_id']].drop_duplicates().shape[0]
+        totals = self._obj.shape[0]
+        if uniques == totals:
+            return True
+        return False
+
+    def is_panel(self):
+        test_square = self._obj
+        min_year = test_square.year_id.min()
+        max_year = test_square.year_id.max()
+        if len(test_square.year_id.unique()) != max_year - min_year + 1:
+            return False
+        first_panel = set(test_square[test_square.year_id == min_year].pg_id.unique())
+        for year in test_square.year_id.unique():
+            cur_panel = set(test_square[test_square.year_id == year].pg_id.unique())
+            if first_panel != cur_panel:
+                return False
+        return True
+
+    def is_complete_cross_section(self, only_views_cells=True):
+        x = self._obj
+        if not self.is_bbox(only_views_cells=only_views_cells):
+            return False
+        vc_len = len(fetch_ids('priogrid')[0]) if only_views_cells else 259200
+        if len(x.pg_id.unique()) == vc_len:
+            return True
+        return False
+
+    def is_complete_time_series(self, min_year=1980, max_year=2050):
+        x = self._obj
+        if not self.is_panel():
+            return False
+        if x.test_square.year_id.min() != min_year:
+            return False
+        if x.test_square.year_id.max() != max_year:
+            return False
+        return True
+
+
+    def fill_panel_gaps(self, fill_value=None):
+        extent1 = pd.DataFrame({'year_id': range(self._obj.year_id.min(), self._obj.year_id.max() + 1), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'pg_id': self._obj.pg_id})
+        extent = extent1.merge(extent2, on='key')[['pg_id','year_id']]
+        extent = extent.merge(self._obj, how='left', on=['pg_id','year_id'])
+        if 'pgy_id' in self._obj:
+            extent = PGYAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
+        return extent
+
+    def fill_spatial_gaps(self, fill_value=None):
+        extent1 = pd.DataFrame({'pg_id': self._obj.pg_id.unique(), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'year_id': self._obj.year_id.unique()})
+        extent = extent1.merge(extent2, on='key')[['pg_id','year_id']]
+        extent = extent.merge(self._obj, how='left', on=['pg_id','year_id'])
+        if 'pgy_id' in self._obj:
+            extent = PGYAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
+        return extent
+
+    def fill_bbox(self, fill_value=None):
+        extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
+        extent2 = pd.DataFrame({'key': 0, 'year_id': list(self._obj.year_id.unique())})
+        extent3 = extent1.merge(extent2, on='key')[['pg_id','year_id']]
+        #print(extent.head())
+        extent = extent3.merge(self._obj, how='left', on=['pg_id','year_id'])
+        #print(extent.head())
+        if 'pgy_id' in self._obj:
+            extent = PGYAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(fill_value)
+        return extent
+
+    @staticmethod
+    def __db_id(z):
+        db_ids = fetch_ids_df('priogrid_year')[['id', 'priogrid_gid', 'year_id']]
+        z['pgy_id'] = z.merge(db_ids, left_on=['pg_id', 'year_id'], right_on=['priogrid_gid', 'year_id']).id
+        return z
+
+    def db_id(self):
+        return PGYAccessor.__db_id(self._obj)
+
+    def trim_to_db_extent(self):
+        try:
+            del self._obj.pgy_id
+        except AttributeError:
+            pass
+        z = self.db_id()
+        z = z[z.pgy_id.notna()]
+        z['pgy_id'] = z.pgy_id.astype('int64')
         return z
 
         """Special method to attach"""
