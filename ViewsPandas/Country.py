@@ -2,8 +2,9 @@ from __future__ import annotations
 from .scratch import fetch_ids, cache_manager, fetch_data
 from .ViewsMonth import ViewsMonth
 from diskcache import Cache
+from .config import inner_cache_path
 
-inner_cache = Cache('inner_local_2')
+inner_cache = Cache(inner_cache_path)
 
 class Country(object):
     def __init__(self, id: int):
