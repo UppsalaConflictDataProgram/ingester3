@@ -99,10 +99,24 @@ class CAccessor:
         return self._obj.apply(lambda row: Country(row.c_id).month_end, axis=1)
 
     @classmethod
-    def from_iso(cls, df, iso_col='iso'):
+    def from_iso(cls, df, iso_col='iso', month_col=None):
         z = df.copy()
-        z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]).id, axis=1)
+        if month_col is None:
+            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]).id, axis=1)
+        else:
+            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col], month_id=row[iso_col]).id, axis=1)
         return z
+
+    @classmethod
+    def from_gwcode(cls, df, gw_col='gwcode', month_col=None):
+        z = df.copy()
+        if month_col is None:
+            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
+        else:
+            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col], month_id=row[gw_col]).id, axis=1)
+
+        return z
+
 
     @classmethod
     def new_structure(cls):
@@ -118,11 +132,6 @@ class CAccessor:
         me = CAccessor.new_structure()
         return me[me.c.in_me]
 
-    @classmethod
-    def from_gwcode(cls, df, gw_col='gwcode'):
-        z = df.copy()
-        z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
-        return z
 
     def db_id(self):
         return self._obj
@@ -615,14 +624,14 @@ class CMAccessor(CAccessor, MAccessor):
     def from_datetime_gwcode(cls, df, datetime_col='datetime', gw_col='gwcode'):
         z = df.copy()
         z = super().from_datetime(z, datetime_col=datetime_col)
-        z = super().from_gwcode(z, gw_col=gw_col)
+        z = super().from_gwcode(z, gw_col=gw_col, month_col='month_id')
         return z
 
     @classmethod
     def from_datetime_iso(cls, df, datetime_col='datetime', iso_col='iso'):
         z = df.copy()
         z = super().from_datetime(z, datetime_col=datetime_col)
-        z = super().from_iso(z, iso_col=iso_col)
+        z = super().from_iso(z, iso_col=iso_col, month_col='month_id')
         return z
 
 
@@ -630,7 +639,7 @@ class CMAccessor(CAccessor, MAccessor):
     def from_year_month_gwcode(cls, df, year_col='year', month_col='month', gw_col='gwcode'):
         z = df.copy()
         z = super().from_year_month(z, year_col=year_col, month_col=month_col)
-        z = super().from_gwcode(z, gw_col=gw_col)
+        z = super().from_gwcode(z, gw_col=gw_col, month_col='month_id')
         return z
 
 
@@ -638,7 +647,7 @@ class CMAccessor(CAccessor, MAccessor):
     def from_year_month_iso(cls, df, year_col='year', month_col='month', iso_col='iso'):
         z = df.copy()
         z = super().from_year_month(z, year_col=year_col, month_col=month_col)
-        z = super().from_iso(z, iso_col=iso_col)
+        z = super().from_iso(z, iso_col=iso_col, month_col='month_id')
         return z
 
     @staticmethod
