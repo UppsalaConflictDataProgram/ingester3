@@ -95,6 +95,13 @@ class DBWriter(object):
                  verbose: bool = False
     ):
 
+        self.RESERVED_WORDS = {'isocc', 'isoab', 'iso', 'isonum',
+                               'gw', 'gwcode', 'gwnum', 'gwab',
+                               'col', 'row', 'gid', 'lat', 'latitude', 'lon', 'long', 'longitude',
+                               'country','priogrid','state','caplat', 'caplon','caplong','start_date','end_date',
+                               'gwdate', 'capname', 'in_africa', 'in_me', 'month', 'start','end',
+                               'month_start', 'month_end', 'centroidlat', 'centroidlong', 'gwsyear', 'gweyear'}
+
         self.__verbose = verbose
 
         self.__validate(pandas_obj, level)
@@ -484,6 +491,8 @@ class DBWriter(object):
 
         old_table_id = [i for i in self.recipe
                          if not i.new_table and '_id' not in i.destination_name]
+        old_table_id = [i for i in old_table_id if i.destination_name not in self.RESERVED_WORDS]
+
         for column in old_table_id:
             self.__print(msg="Working on column:",column=column)
 

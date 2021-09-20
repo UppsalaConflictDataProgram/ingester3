@@ -50,6 +50,12 @@ class Country(object):
         return neighbors
 
     def neighbors(self, month_id = None):
+        """
+        Returns the first-order neighbors of a given country at a certain timepoint
+        If no month is issued
+        :param month_id:
+        :return:
+        """
         neighbors = Country.__fetch_neighbors()
         neighbors = neighbors[neighbors.a_id == self.id]
         if month_id is not None:
@@ -59,18 +65,31 @@ class Country(object):
 
     @staticmethod
     def __extid2id(name_value, name_var='isoab', month_id=None):
+        """
+        Translates an alternate identification system present in the ViEWS DB to ViEWS id
+        :param name_value: The value of the id (e.g. SWE for the ISO system)
+        :param name_var: The name of the system to use (e.g. isoab, cowcode or gwcode)
+        :param month_id: a ViEWS Month id (as int)
+        :return: A ViEWS id corresponding to the name_value in the name_var system for the given month
+        Newest iteration of the country is returned if no month is given.
+        """
         descriptors = Country.__fetch_descriptors()
         descriptors = descriptors[(descriptors[name_var] == name_value)]
-        if month_id is not None:
+
+        if month_id is None:
+            try:
+                return int(descriptors.sort_values(by='month_end',
+                                                   ascending=False,
+                                                   ignore_index=True).loc[0].id)
+            except ValueError:
+                raise ValueError('Country does not exist!')
+        else:
             descriptors = descriptors[(descriptors.month_start <= month_id) &
                                       (descriptors.month_end > month_id)]
         try:
             return int(max(descriptors.id))
         except ValueError:
-            if month_id is None:
-                raise ValueError('Country does not exist!')
-            else:
-                raise ValueError('Country does not exist at this point in time!')
+            raise ValueError('Country does not exist at this point in time!')
 
 
     @staticmethod
