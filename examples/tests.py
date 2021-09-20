@@ -1,6 +1,6 @@
 import pandas as pd
-from ViewsPandas.extensions import *
-from ViewsPandas.Country import Country
+from ingester3.extensions import *
+from ingester3.Country import Country
 from warnings import catch_warnings
 import numpy as np
 

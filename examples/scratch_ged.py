@@ -1,8 +1,8 @@
 import pandas as pd
 import requests
-from ViewsPandas.extensions import *
-from ViewsPandas.DBWriter import DBWriter
-from ViewsPandas.scratch import cache_manager
+from ingester3.extensions import *
+from ingester3.DBWriter import DBWriter
+from ingester3.scratch import cache_manager
 
 from diskcache import Cache
 ged_cache = Cache('ged.cache')

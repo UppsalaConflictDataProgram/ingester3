@@ -1,4 +1,4 @@
-from ViewsPandas import log
+from ingester3 import log
 import pandas as pd
 
 @log.log_ingester()
