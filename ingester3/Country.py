@@ -49,6 +49,7 @@ class Country(object):
         neighbors = fetch_data(loa_table='country_country_month_expanded', columns=columns)
         return neighbors
 
+    @inner_cache.memoize(typed=True, expire=600, tag="country_neighbors_outer")
     def neighbors(self, month_id = None):
         """
         Returns the first-order neighbors of a given country at a certain timepoint
