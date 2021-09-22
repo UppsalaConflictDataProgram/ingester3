@@ -175,6 +175,7 @@ class DBWriter(object):
         self.space_extent = space_list
 
     def __get_col_python_type(self, column):
+        column = column.copy().reset_index(drop=True)
         col_type = type(None)
         i = 0
         while col_type == type(None) or i < len(column)-1:
@@ -252,7 +253,7 @@ class DBWriter(object):
         self.__rename_headers()
 
         self.df.head(0).to_sql(name=self.tname_temp,
-                               schema='loader',
+                               schema='public',
                                con=self.engine,
                                index=False,
                                if_exists='replace')
@@ -268,7 +269,7 @@ class DBWriter(object):
         try_simple = False
         try:
             cur.copy_from(out, sep='|', size=134217728,
-                      table = f'loader.{self.tname_temp}',
+                      table = f'public.{self.tname_temp}',
                       null="")
             raw_con.commit()
         except psycopg2.errors.BadCopyFileFormat:
@@ -279,14 +280,14 @@ class DBWriter(object):
             raw_con.close()
         if try_simple:
             with self.engine.connect() as con:
-                self.df.to_sql(con=con, schema='loader', name=self.tname_temp, if_exists="append", index=False)
+                self.df.to_sql(con=con, schema='public', name=self.tname_temp, if_exists="append", index=False)
 
         return 0
 
     def del_temp(self):
         with self.engine.connect() as con:
             trans = con.begin()
-            con.execute(f"DROP TABLE IF EXISTS loader.{self.tname_temp}")
+            con.execute(f"DROP TABLE IF EXISTS public.{self.tname_temp}")
             trans.commit()
 
     def __zero_type(self, type):
@@ -335,7 +336,7 @@ class DBWriter(object):
 
     def __get_zero_columns(self, which_columns, inside = True):
 
-        key_types = flash_fetch_definitions(schema='loader', table=self.tname_temp)
+        key_types = flash_fetch_definitions(schema='public', table=self.tname_temp)
 
         if inside:
             zero_inside = [i.destination_name for i in self.recipe
@@ -371,8 +372,8 @@ class DBWriter(object):
 
     def index_temp_table(self):
         sql = f"""
-        ALTER TABLE loader.{self.tname_temp} ADD PRIMARY KEY ({self.level}_id);
-        CREATE INDEX {self.tname_temp}_idx ON loader.{self.tname_temp}({self.level}_id);
+        ALTER TABLE public.{self.tname_temp} ADD PRIMARY KEY ({self.level}_id);
+        CREATE INDEX {self.tname_temp}_idx ON public.{self.tname_temp}({self.level}_id);
         """
         with self.engine.connect() as con:
             trans = con.begin()
@@ -382,7 +383,7 @@ class DBWriter(object):
     def del_spurios_loaded_data(self):
         if self.time_extent is not None or self.space_extent is not None:
             sql = f"""
-              DELETE FROM loader.{self.tname_temp} WHERE {self.level}_id::bigint NOT IN (
+              DELETE FROM public.{self.tname_temp} WHERE {self.level}_id::bigint NOT IN (
              SELECT id
              FROM prod.{self.tablespace} base
              {self.__inner_where_query()} )
@@ -415,7 +416,7 @@ class DBWriter(object):
         (
         SELECT base.id AS {self.tablespace}_id, 
                {self.__make_coalesce(new_table_ids,zero_inside)}
-        FROM prod.{self.tablespace} base LEFT JOIN loader.{self.tname_temp} nnew
+        FROM prod.{self.tablespace} base LEFT JOIN public.{self.tname_temp} nnew
         ON (base.id::bigint = nnew.{self.level}_id::bigint)  
         {self.__inner_where_query()}
         )
@@ -425,7 +426,7 @@ class DBWriter(object):
         (
         SELECT base.id AS {self.tablespace}_id, 
                {self.__make_coalesce(new_table_ids,zero_outside)}
-        FROM prod.{self.tablespace} base LEFT JOIN loader.{self.tname_temp} nnew
+        FROM prod.{self.tablespace} base LEFT JOIN public.{self.tname_temp} nnew
         ON (base.id::bigint = nnew.{self.level}_id::bigint) 
         {self.__inner_where_query(outside=True)} 
         )
@@ -523,7 +524,7 @@ class DBWriter(object):
 
             update_queries += [f"""UPDATE prod.{column.destination_table} dest 
                               SET "{column.destination_name}" = base."{column.destination_name}"{recast_to}
-                              FROM loader.{self.tname_temp} base 
+                              FROM public.{self.tname_temp} base 
                               WHERE dest."{table_primary_key}" = base."{self.level}_id" """]
 
             with self.engine.connect() as con:
