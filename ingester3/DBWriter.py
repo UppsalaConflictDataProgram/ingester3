@@ -252,11 +252,14 @@ class DBWriter(object):
 
         self.__rename_headers()
 
-        self.df.head(0).to_sql(name=self.tname_temp,
-                               schema='public',
-                               con=self.engine,
-                               index=False,
-                               if_exists='replace')
+        with self.engine.connect() as con:
+            trans = con.begin()
+            self.df.head(0).to_sql(name=self.tname_temp,
+                                   schema='public',
+                                   con=con,
+                                   index=False,
+                                   if_exists='replace')
+            trans.commit()
         #, con = cnx, index = False)  # head(0) uses only the header
         # set index=False to avoid bringing the dataframe index in as a column
 
@@ -269,7 +272,7 @@ class DBWriter(object):
         try_simple = False
         try:
             cur.copy_from(out, sep='|', size=134217728,
-                      table = f'public.{self.tname_temp}',
+                      table = self.tname_temp,
                       null="")
             raw_con.commit()
         except psycopg2.errors.BadCopyFileFormat:
