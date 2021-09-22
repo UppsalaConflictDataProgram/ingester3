@@ -113,7 +113,7 @@ class CAccessor:
         if month_col is None:
             z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col], month_id=row[gw_col]).id, axis=1)
+            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col], month_id=row[month_col]).id, axis=1)
 
         return z
 

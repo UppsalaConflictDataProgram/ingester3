@@ -79,11 +79,12 @@ class Country(object):
 
         if month_id is None:
             try:
-                return int(descriptors.sort_values(by='month_end',
-                                                   ascending=False,
-                                                   ignore_index=True).loc[0].id)
+                x = int(descriptors.sort_values(by='month_end',
+                                                ascending=False,
+                                                ignore_index=True).loc[0].id)
+                return x
             except ValueError:
-                raise ValueError('Country does not exist!')
+                raise ValueError("Country does not exist")
         else:
             descriptors = descriptors[(descriptors.month_start <= month_id) &
                                       (descriptors.month_end > month_id)]

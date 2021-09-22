@@ -417,21 +417,21 @@ class DBWriter(object):
 
         inner_sql_bit = f'''
         (
-        SELECT base.id AS {self.tablespace}_id, 
+        SELECT base.id AS {self.tablespace}_id,
                {self.__make_coalesce(new_table_ids,zero_inside)}
         FROM prod.{self.tablespace} base LEFT JOIN public.{self.tname_temp} nnew
-        ON (base.id::bigint = nnew.{self.level}_id::bigint)  
+        ON (base.id::bigint = nnew.{self.level}_id::bigint)
         {self.__inner_where_query()}
         )
         '''
 
         outer_sql_bit = f'''
         (
-        SELECT base.id AS {self.tablespace}_id, 
+        SELECT base.id AS {self.tablespace}_id,
                {self.__make_coalesce(new_table_ids,zero_outside)}
         FROM prod.{self.tablespace} base LEFT JOIN public.{self.tname_temp} nnew
-        ON (base.id::bigint = nnew.{self.level}_id::bigint) 
-        {self.__inner_where_query(outside=True)} 
+        ON (base.id::bigint = nnew.{self.level}_id::bigint)
+        {self.__inner_where_query(outside=True)}
         )
         '''
 
@@ -441,9 +441,9 @@ class DBWriter(object):
 
         sql_copy = f"""
         DROP TABLE IF EXISTS prod.{tname};
-        CREATE TABLE prod.{tname} AS 
-        SELECT * FROM 
-         ( 
+        CREATE TABLE prod.{tname} AS
+        SELECT * FROM
+         (
         {sql_sub_routine}
          ) merged_final WHERE merged_final.{self.tablespace}_id IS NOT NULL;
         """
@@ -525,9 +525,9 @@ class DBWriter(object):
 
             recast_to = self.__subquery_cast_to_db_type(column)
 
-            update_queries += [f"""UPDATE prod.{column.destination_table} dest 
+            update_queries += [f"""UPDATE prod.{column.destination_table} dest
                               SET "{column.destination_name}" = base."{column.destination_name}"{recast_to}
-                              FROM public.{self.tname_temp} base 
+                              FROM public.{self.tname_temp} base
                               WHERE dest."{table_primary_key}" = base."{self.level}_id" """]
 
             with self.engine.connect() as con:
@@ -541,7 +541,7 @@ class DBWriter(object):
                 except sa.exc.DataError:
                     warnings.warn(f"""
                     Warning: {column.destination_name} is of an incompatible type in the DB, i.e ({recast_to})
-                    This column was not modified in the database. 
+                    This column was not modified in the database.
                     Try casting it in Pandas or changing the DB column to a larger cast (e.g. TEXT).""")
                     trans.rollback()
 
