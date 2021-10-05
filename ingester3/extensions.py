@@ -39,7 +39,7 @@ class CAccessor:
     @staticmethod
     def __soft_validate(row):
         """
-        Soft-validate a df containing lat/lon values. Will produce a valid_latlon column to the existing dataframe
+        Soft-validate a df containing c_id values. Will produce a valid_latlon column to the existing dataframe
         """
         try:
             _ = Country(row.c_id).id
@@ -47,6 +47,25 @@ class CAccessor:
         except ValueError:
             ok = False
         return ok
+
+    @staticmethod
+    def __soft_validate_gw(row, gw_col='gwcode', month_col=None):
+        try:
+            if month_col is not None:
+                _ = Country.from_gwcode(int(row[gw_col]), int(row[month_col]))
+            else:
+                _ = Country.from_gwcode(int(row[gw_col]))
+            ok = True
+        except ValueError:
+            ok = False
+        return ok
+
+    @classmethod
+    def soft_validate_gwcode(self, df, gw_col='gwcode', month_col=None):
+        z = df.copy()
+        soft_validator = partial(CAccessor.__soft_validate_gw, gw_col=gw_col, month_col=month_col)
+        z['valid_id'] = df.apply(soft_validator, axis=1)
+        return z
 
     @classmethod
     def soft_validate(cls, df):
@@ -104,7 +123,7 @@ class CAccessor:
         if month_col is None:
             z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col], month_id=row[iso_col]).id, axis=1)
+            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col], month_id=row[month_col]).id, axis=1)
         return z
 
     @classmethod
@@ -113,7 +132,9 @@ class CAccessor:
         if month_col is None:
             z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col], month_id=row[month_col]).id, axis=1)
+            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=int(row[gw_col]),
+                                                                 month_id=int(row[month_col])).id,
+                                 axis=1)
 
         return z
 
@@ -670,7 +691,8 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     @classmethod
     def new_structure(cls):
-        return pd.DataFrame(fetch_ids_df('priogrid_month').rename(columns={'id': 'pg_id'})[['pg_id','month_id']])
+        return pd.DataFrame(fetch_ids_df('priogrid_month').
+                            rename(columns={'id': 'pgm_id','priogrid_gid':'pg_id'})[['pgm_id','pg_id','month_id']])
 
     @property
     def is_unique(self):

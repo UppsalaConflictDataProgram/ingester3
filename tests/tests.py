@@ -90,3 +90,6 @@ c_df = pd.DataFrame({'isoab': c_list,
 filled_c_df = pd.DataFrame.c.from_iso(c_df, iso_col='isoab')
 assert filled_c_df[filled_c_df.isoab == 'EGY'].c_id.iloc[0] == 222
 
+assert ViewsMonth(300).start_date == '2004-12-01'
+assert ViewsMonth(300).end_date == '2004-12-31'
+assert ViewsMonth(302).end_date == '2005-02-28'

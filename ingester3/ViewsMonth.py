@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 class ViewsMonth(object):
 
@@ -52,3 +52,22 @@ class ViewsMonth(object):
     @classmethod
     def now(cls):
         return cls.from_date(datetime.now())
+
+    @property
+    def start_date(self):
+        """
+        Returns the ISO (YYYY-MM-DD) representation of the start date of a ViEWS Month
+        :return: Start date in ISO format
+        """
+        return datetime.strftime(date(self.year, self.month, 1), '%Y-%m-%d')
+
+    @property
+    def end_date(self):
+        """
+        Returns the ISO (YYYY-MM-DD) representation of the end date of a ViEWS Month
+        :return: End date in ISO format
+        """
+        #Start from 
+        end_date = (date(self.year, self.month, 28)+timedelta(5)).replace(day=1)-timedelta(1)
+        return datetime.strftime(end_date, '%Y-%m-%d')
+

@@ -87,11 +87,11 @@ class Country(object):
                 raise ValueError("Country does not exist")
         else:
             descriptors = descriptors[(descriptors.month_start <= month_id) &
-                                      (descriptors.month_end > month_id)]
+                                      (descriptors.month_end >= month_id)]
         try:
             return int(max(descriptors.id))
         except ValueError:
-            raise ValueError('Country does not exist at this point in time!')
+            raise ValueError(f"Country with {name_var} = {name_value} does not exist at month {month_id}!")
 
 
     @staticmethod
