@@ -49,6 +49,19 @@ class CAccessor:
         return ok
 
     @staticmethod
+    def __soft_validate_iso(row, iso_col='iso', month_col=None):
+        try:
+            if month_col is not None:
+                _ = Country.from_iso(row[iso_col].strip().upper(), int(row[month_col]))
+            else:
+                _ = Country.from_iso(row[iso_col].strip().upper())
+            ok = True
+        except ValueError:
+            ok = False
+        return ok
+
+
+    @staticmethod
     def __soft_validate_gw(row, gw_col='gwcode', month_col=None):
         try:
             if month_col is not None:
@@ -61,8 +74,21 @@ class CAccessor:
         return ok
 
     @classmethod
-    def soft_validate_gwcode(self, df, gw_col='gwcode', month_col=None):
+    def soft_validate_iso(cls, df, iso_col='iso', month_col=None):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
+        soft_validator = partial(CAccessor.__soft_validate_iso, iso_col=iso_col, month_col=month_col)
+        z['valid_id'] = df.apply(soft_validator, axis=1)
+        return z
+
+    @classmethod
+    def soft_validate_gwcode(cls, df, gw_col='gwcode', month_col=None):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
         soft_validator = partial(CAccessor.__soft_validate_gw, gw_col=gw_col, month_col=month_col)
         z['valid_id'] = df.apply(soft_validator, axis=1)
         return z
@@ -70,8 +96,11 @@ class CAccessor:
     @classmethod
     def soft_validate(cls, df):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
         z['valid_id'] = df.apply(CAccessor.__soft_validate, axis=1)
-        return z['valid_id']
+        return z
 
     @property
     def name(self):
@@ -120,15 +149,22 @@ class CAccessor:
     @classmethod
     def from_iso(cls, df, iso_col='iso', month_col=None):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['c_id'] = None
+            return z
         if month_col is None:
-            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col]).id, axis=1)
+            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper()).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col], month_id=row[month_col]).id, axis=1)
+            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper(),
+                                                              month_id=int(row[month_col])).id, axis=1)
         return z
 
     @classmethod
     def from_gwcode(cls, df, gw_col='gwcode', month_col=None):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['c_id'] = None
+            return z
         if month_col is None:
             z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         else:
@@ -269,6 +305,9 @@ class PgAccessor:
         :return: A pg-class dataframe.
         """
         z = df.copy()
+        if z.shape[0] == 0:
+            z['pg_id'] = None
+            return z
         z['pg_id'] = df.apply(lambda row: Priogrid.latlon2id(lat=row[lat_col], lon=row[lon_col]), axis=1)
         return z
 
@@ -291,6 +330,9 @@ class PgAccessor:
         :return:
         """
         z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_latlon'] = None
+            return z
         soft_validator = partial(PgAccessor.__soft_validate_pg, lat_col=lat_col, lon_col=lon_col)
         z['valid_latlon'] = z.apply(soft_validator, axis=1)
         return z
@@ -366,6 +408,10 @@ class MAccessor():
     @classmethod
     def from_year_month(cls, df, year_col='year', month_col='month'):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['month_id'] = None
+            return z
+
         z['month_id'] = z.apply(lambda row: ViewsMonth.from_year_month(year=row[year_col],
                                                                        month=row[month_col]).id,
                                 axis=1)
@@ -374,6 +420,10 @@ class MAccessor():
     @classmethod
     def from_datetime(cls, df, datetime_col='datetime'):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['month_id'] = None
+            return z
+
         z['temp_year_col'] = z[datetime_col].dt.year
         z['temp_month_col'] = z[datetime_col].dt.month
         z['month_id'] = z.apply(lambda row: ViewsMonth.from_year_month(year=row['temp_year_col'],
@@ -404,6 +454,9 @@ class MAccessor():
     @classmethod
     def soft_validate_year_month(cls, df, year_col='year', month_col='month'):
         z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_year_month'] = None
+            return z
         soft_validator = partial(MAccessor.__soft_validate_month, year_col=year_col, month_col=month_col)
         z['valid_year_month'] = z.apply(soft_validator, axis=1)
         return z
@@ -711,7 +764,12 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     @classmethod
     def soft_validate_year_month_latlon(cls, df, year_col='year', month_col='month', lat_col='lat', lon_col='lon'):
+
         z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_year_month_latlon'] = None
+            return z
+
         z = super().soft_validate_year_month(z, year_col=year_col, month_col=month_col)
         z = super().soft_validate_latlon(z, lat_col=lat_col, lon_col=lon_col)
         z['valid_year_month_latlon'] = z.valid_year_month & z.valid_latlon

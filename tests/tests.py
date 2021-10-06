@@ -93,3 +93,16 @@ assert filled_c_df[filled_c_df.isoab == 'EGY'].c_id.iloc[0] == 222
 assert ViewsMonth(300).start_date == '2004-12-01'
 assert ViewsMonth(300).end_date == '2004-12-31'
 assert ViewsMonth(302).end_date == '2005-02-28'
+
+cm6 = pd.DataFrame({"isocc":['SEN','SEN','GDP'],"month":[500,501,502]})
+cm6 = pd.DataFrame.cm.soft_validate_iso(cm6,'isocc','month')
+assert cm6.valid_id[2] == False
+assert cm6.valid_id[1] == True
+
+
+cm_empty = cm6.drop([0,1,2])
+cm_empty = pd.DataFrame.cm.soft_validate_iso(cm_empty,'isocc','month')
+cm_empty = pd.DataFrame.cm.from_iso(cm_empty,'isocc','month')
+assert 'c_id' in set(cm_empty.columns)
+assert 'valid_id' in set(cm_empty.columns)
+assert cm_empty.shape[0] == 0
