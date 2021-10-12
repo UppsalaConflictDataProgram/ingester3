@@ -4,6 +4,8 @@ from ingester3.Country import Country
 from warnings import catch_warnings
 import numpy as np
 
+cache_manager(True)
+
 # Test the m accessor
 
 m1 = pd.DataFrame({"month_id":[100,101,102]})
@@ -99,10 +101,40 @@ cm6 = pd.DataFrame.cm.soft_validate_iso(cm6,'isocc','month')
 assert cm6.valid_id[2] == False
 assert cm6.valid_id[1] == True
 
-
 cm_empty = cm6.drop([0,1,2])
 cm_empty = pd.DataFrame.cm.soft_validate_iso(cm_empty,'isocc','month')
 cm_empty = pd.DataFrame.cm.from_iso(cm_empty,'isocc','month')
 assert 'c_id' in set(cm_empty.columns)
 assert 'valid_id' in set(cm_empty.columns)
 assert cm_empty.shape[0] == 0
+
+pg_valid = pd.DataFrame({"pg_id":[592112, -1, 20245, None]})
+pg_valid = pd.DataFrame.pg.soft_validate(pg_valid)
+assert pg_valid.valid_id.sum() == 1
+
+m_valid = pd.DataFrame({"month_id":[100,200,None, -1]})
+m_valid = pd.DataFrame.m.soft_validate(m_valid)
+assert m_valid.valid_id.sum() == 2
+
+pgm_valid = pd.DataFrame({"pg_id":[21219, -1, 20245, 30211], 'month_id':[100,100,-1,None]})
+pgm_valid = pd.DataFrame.pgm.soft_validate(pgm_valid)
+assert pg_valid.valid_id.sum() == 1
+
+c_valid = pd.DataFrame({"c_id":[64,67,-1,910,None]})
+c_valid = pd.DataFrame.c.soft_validate(c_valid)
+assert c_valid.valid_id.sum() == 2
+
+c_valid = pd.DataFrame({"c_id":[64,67,-1,910,None], "month_id":[404,None,-1,2,700]})
+c_valid = pd.DataFrame.cm.soft_validate(c_valid)
+assert c_valid.valid_id.sum() == 1
+
+
+c_valid = pd.DataFrame({"c_id":[254,254,254],"year_id":[1990,1991,1992]})
+c_valid = pd.DataFrame.cy.soft_validate(c_valid)
+assert c_valid.loc[0].valid_id == False
+assert c_valid.loc[1].valid_id == True
+assert c_valid.loc[2].valid_id == False
+
+
+soft_validate_cy = pd.DataFrame({'c_id':[116,73,74,75], 'year_id':[2000,2000,-1,2001]})
+print(pd.DataFrame.cy.soft_validate(soft_validate_cy))
