@@ -32,6 +32,7 @@ class ViewsMonth(object):
         if year < 1980:
             raise ValueError("Year must be >=1980")
 
+    @staticmethod
     def __validate_month(month):
         if not (1 <= month <= 12):
             raise ValueError("Month must be between 1 and 12")

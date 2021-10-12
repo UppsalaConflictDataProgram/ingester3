@@ -56,7 +56,7 @@ class CAccessor:
             else:
                 _ = Country.from_iso(row[iso_col].strip().upper())
             ok = True
-        except ValueError:
+        except (ValueError, KeyError, AttributeError):
             ok = False
         return ok
 
@@ -69,7 +69,7 @@ class CAccessor:
             else:
                 _ = Country.from_gwcode(int(row[gw_col]))
             ok = True
-        except ValueError:
+        except (ValueError, KeyError, AttributeError):
             ok = False
         return ok
 
@@ -148,6 +148,20 @@ class CAccessor:
 
     @classmethod
     def from_iso(cls, df, iso_col='iso', month_col=None):
+        """
+        Takes a dataframe containing a column containing literal ISO 3-letter country (iso3, isoab, isocc)
+        codes and returns a dataframe containing the proper Views c_id corresponding to the ISO 3-letter country.
+        An optional month column can be specified : ISO codes are not time-aware, whereas ViEWS ids are time-aware:
+        :param df: An input data frame containing ISO 2-letter country codes.
+        :param iso_col: The column name of the column containing ISO country codes in the conventional three letter
+        convention.
+        :param month_col: An optional column containing ViEWS style month ids. If not specified,
+        the most recent Views `c_id` corresponding to the literal code will be returned.
+        If month_id column is specified, then the iso_cc corresponding to that `month_id` is returned.
+        :return:  a df containing proper `c_id` infered from the `iso_col` and `month_col`.
+        If a row contains codes that are invalid, will throw an exception, see **soft validators** below
+        for soft validating dfs before calling factories.
+        """
         z = df.copy()
         if z.shape[0] == 0:
             z['c_id'] = None
@@ -203,7 +217,6 @@ class CAccessor:
         if pd.unique(self._obj.c_id).size == self._obj.c_id.size:
             return True
         return False
-
 
 
 @pd.api.extensions.register_dataframe_accessor("pg")
@@ -312,6 +325,25 @@ class PgAccessor:
         return z
 
     @staticmethod
+    def __soft_validate_row(row):
+        try:
+            _ = Priogrid(int(row['pg_id']))
+            ok = True
+        except:
+            ok = False
+        return ok
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
+        z['valid_id'] = z.apply(PgAccessor.__soft_validate_row, axis=1)
+        return z
+
+
+    @staticmethod
     def __soft_validate_pg(row, lat_col, lon_col):
         try:
             _ = Priogrid.latlon2id(lat=row[lat_col], lon=row[lon_col])
@@ -368,7 +400,6 @@ class PgAccessor:
 
     def fill_bbox(self):
         return pd.DataFrame({'pg_id': list(self.get_bbox())}).merge(self._obj, how='left', on='pg_id')
-
 
 
 @pd.api.extensions.register_dataframe_accessor("m")
@@ -433,7 +464,6 @@ class MAccessor():
         del z["temp_month_col"]
         return z
 
-
     def db_id(self):
         return self._obj
 
@@ -441,6 +471,25 @@ class MAccessor():
         extent = pd.DataFrame({'month_id': range(self._obj.month_id.min(), self._obj.month_id.max() + 1)})
         extent = extent.merge(self._obj, how='left', on=['month_id'])
         return extent
+
+    @staticmethod
+    def __soft_validate(row):
+        try:
+            if 0 < row['month_id'] < 1000:
+                return True
+            else:
+                return False
+        except:
+            return False
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
+        z['valid_id'] = z.apply(MAccessor.__soft_validate, axis=1)
+        return z
 
     @staticmethod
     def __soft_validate_month(row, year_col, month_col):
@@ -479,6 +528,31 @@ class MAccessor():
 class CYAccessor(CAccessor):
     def __init__(self, pandas_obj):
         super().__init__(pandas_obj)
+
+    @staticmethod
+    def __soft_validate(row):
+        try:
+            cntry = Country(int(row.c_id))
+            # Some countries begin before the ViEWS Epoch
+            if cntry.month_start <= 0:
+                cntry.month_start = 1
+            # If the year in the row is within the country's existence, we are fine.
+            if int(row.year_id) in range(ViewsMonth(cntry.month_start).year, ViewsMonth(cntry.month_end).year+1):
+                ok = True
+            else:
+                ok = False
+        except ValueError:
+            ok = False
+        return ok
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
+        z['valid_id'] = df.apply(CYAccessor.__soft_validate, axis=1)
+        return z
 
     @property
     def is_unique(self):
@@ -578,8 +652,6 @@ class CYAccessor(CAccessor):
         return CYAccessor.__db_id(self._obj)
 
 
-
-
 @pd.api.extensions.register_dataframe_accessor("cm")
 class CMAccessor(CAccessor, MAccessor):
     def __init__(self, pandas_obj):
@@ -613,6 +685,17 @@ class CMAccessor(CAccessor, MAccessor):
                 if high - low + 1 != len(test_country.index):
                     return False
         return True
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = CAccessor.soft_validate(df)
+        z['valid_id_0'] = z['valid_id']
+        del z['valid_id']
+        z = MAccessor.soft_validate(z)
+        z['valid_id'] = z['valid_id'] & z['valid_id_0']
+        del z['valid_id_0']
+        return z
+
 
     def is_complete_time_series(self, min_month=190, max_month=621):
         test_square = self._obj.copy()
@@ -775,6 +858,25 @@ class PGMAccessor(PgAccessor, MAccessor):
         z['valid_year_month_latlon'] = z.valid_year_month & z.valid_latlon
         return z
 
+    @classmethod
+    def soft_validate(cls, df):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_id'] = None
+            return z
+        else:
+            z = PgAccessor.soft_validate(z)
+            z['valid_id_0'] = z.valid_id
+            del z['valid_id']
+            z = MAccessor.soft_validate(z)
+            z['valid_id_1'] = z.valid_id
+            del z['valid_id']
+            z['valid_id'] = z.valid_id_1 & z.valid_id_0
+            del z['valid_id_0']
+            del z['valid_id_1']
+            return z
+
+
     def full_set(self, land_only=True):
         pg_full_set = super(PgAccessor, self).full_set(land_only)
         return pg_full_set
@@ -889,6 +991,14 @@ class PGYAccessor(PgAccessor):
         if uniques == totals:
             return True
         return False
+
+    @classmethod
+    def soft_validate(cls, df):
+        z = PgAccessor.soft_validate(df)
+        z['valid_year']=(1980 <= pd.to_numeric(z.year_id)) & (pd.to_numeric(z.year_id) <= 2100)
+        z['valid_id'] = z['valid_id'] & z['valid_year']
+        del z['valid_year']
+        return z
 
     def is_panel(self):
         test_square = self._obj
