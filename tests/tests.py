@@ -4,7 +4,7 @@ from ingester3.Country import Country
 from warnings import catch_warnings
 import numpy as np
 
-cache_manager(True)
+cache_manager()
 
 # Test the m accessor
 
@@ -136,5 +136,14 @@ assert c_valid.loc[1].valid_id == True
 assert c_valid.loc[2].valid_id == False
 
 
-soft_validate_cy = pd.DataFrame({'c_id':[116,73,74,75], 'year_id':[2000,2000,-1,2001]})
-print(pd.DataFrame.cy.soft_validate(soft_validate_cy))
+c_cy = pd.DataFrame({'c_id':[116,73,74,75], 'year_id':[2000,2000,-1,2001]})
+c_cy = pd.DataFrame.cy.soft_validate(c_cy)
+assert c_cy.loc[0:1].valid_id.sum() == 2
+assert c_cy.loc[2:3].valid_id.sum() == 0
+
+
+new_africa = pd.DataFrame.c.new_africa()
+assert new_africa.c.full_set(in_africa = True) == True
+
+new_me = pd.DataFrame.c.new_me()
+assert new_me.c.full_set(in_me = True) == True
