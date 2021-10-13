@@ -207,10 +207,22 @@ class CAccessor:
     def db_id(self):
         return self._obj
 
-    def full_set(self):
-        available_countries, _ = fetch_ids('country')
+    def full_set(self, in_africa = False, in_me = False):
+
+        available_countries = pd.DataFrame()
+        if in_me:
+            available_countries = pd.concat([available_countries,CAccessor.new_me()])
+        if in_africa:
+            available_countries = pd.concat([available_countries,CAccessor.new_africa()])
+        if available_countries.shape[0] == 0:
+            available_countries, _ = fetch_ids('country')
+        else:
+            available_countries = available_countries.c_id
+
+        #print(available_countries)
         av_c = set(available_countries)
         df_c = set(self._obj.c_id)
+        #print (av_c, df_c)
         return av_c == df_c
 
     def is_unique(self):
@@ -877,8 +889,9 @@ class PGMAccessor(PgAccessor, MAccessor):
             return z
 
 
-    def full_set(self, land_only=True):
+    def full_set(self, land_only=True, max_month=None):
         pg_full_set = super(PgAccessor, self).full_set(land_only)
+        m_full_set = super(MAccessor, self).full_set(max_month)
         return pg_full_set
 
     def is_panel(self):
