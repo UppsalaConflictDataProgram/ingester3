@@ -21,9 +21,10 @@ def cache_manager(clear = False):
                                    schema='prod_metadata',
                                    autoload=True,
                                    autoload_with=views_engine)
-        query = sa.select([timestamp_table])
+        query = sa.select([timestamp_table.c.ddl_stamp])
         with views_engine.connect() as conn:
             db_stamp = conn.execute(query).fetchone()[0]
+            ##print(db_stamp)
     except sa.exc.OperationalError:
         db_stamp = 0
         warnings.warn("No database connection! Will try to use cache for read-only ops as much as I can")

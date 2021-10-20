@@ -86,6 +86,7 @@ class DBWriter(object):
         if pandas_obj[key_col_name].isnull().sum()>0:
             raise KeyError(f'Key column has nulls!')
 
+
     @log.log_ingester()
     def __init__(self, pandas_obj, level='cm',
                  in_panel_wipe: bool = True,
@@ -94,6 +95,17 @@ class DBWriter(object):
                  out_panel_zero: bool = False,
                  verbose: bool = False
     ):
+
+        """
+
+        :param pandas_obj:
+        :param level:
+        :param in_panel_wipe:
+        :param out_panel_wipe:
+        :param in_panel_zero:
+        :param out_panel_zero:
+        :param verbose:
+        """
 
         self.RESERVED_WORDS = {'isocc', 'isoab', 'iso', 'isonum',
                                'gw', 'gwcode', 'gwnum', 'gwab',
@@ -455,12 +467,17 @@ class DBWriter(object):
         FOREIGN KEY({self.tablespace}_id)
 	  REFERENCES prod.{self.tablespace}(id);
         """)
+
+        sql_trigger = sa.text(f"""CREATE TRIGGER check_update_{tname} AFTER UPDATE ON' ||
+           ' prod.{tname} FOR EACH STATEMENT EXECUTE PROCEDURE update_timestamp()'""")
+
         self.__print(msg = "Creating New Table using following SQL:", new_table_query = str(sql_copy))
 
         with self.engine.connect() as con:
             trans = con.begin()
             con.execute(sql_copy)
             con.execute(sql_reference)
+            con.execute(sql_trigger)
             trans.commit()
             cache_manager(clear=True)
 

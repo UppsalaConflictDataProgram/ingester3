@@ -245,6 +245,7 @@ class PgAccessor:
         :param pandas_obj: A pandas DataFrame containing
         """
         cache_manager(False)
+
         self._validate(pandas_obj)
         self._obj = pandas_obj
         self._obj.pg_id = self._obj.pg_id.astype('int')
@@ -410,8 +411,14 @@ class PgAccessor:
         square = self.get_bbox(only_views_cells=only_views_cells)
         return square == set(self._obj.pg_id)
 
-    def fill_bbox(self):
-        return pd.DataFrame({'pg_id': list(self.get_bbox())}).merge(self._obj, how='left', on='pg_id')
+    def fill_bbox(self, fill_value=None):
+        extent = pd.DataFrame({'pg_id': list(self.get_bbox())}).merge(self._obj, how='left', on='pg_id')
+        if 'pgm_id' in self._obj:
+            extent = PGMAccessor.__db_id(extent)
+        if fill_value is not None:
+            extent = extent.fillna(extent)
+        return extent
+
 
 
 @pd.api.extensions.register_dataframe_accessor("m")
@@ -442,11 +449,11 @@ class MAccessor():
 
     @property
     def year(self):
-        return self._obj.apply(lambda x: ViewsMonth(x.id).year, axis=1)
+        return self._obj.apply(lambda x: ViewsMonth(x.month_id).year, axis=1)
 
     @property
     def month(self):
-        return self._obj.apply(lambda x: ViewsMonth(x.id).month, axis=1)
+        return self._obj.apply(lambda x: ViewsMonth(x.month_id).month, axis=1)
 
     @classmethod
     def from_year_month(cls, df, year_col='year', month_col='month'):
@@ -761,7 +768,7 @@ class CMAccessor(CAccessor, MAccessor):
         if len(subset_c) == 0: subset_c = av_c
         subset_c = set(i.id for i in subset_c)
 
-        if set(test_square.c_id.unique()) == subset_c:
+        if subset_c.issubset(set(test_square.c_id.unique())):
             return True
         return False
 
@@ -892,7 +899,7 @@ class PGMAccessor(PgAccessor, MAccessor):
     def full_set(self, land_only=True, max_month=None):
         pg_full_set = super(PgAccessor, self).full_set(land_only)
         m_full_set = super(MAccessor, self).full_set(max_month)
-        return pg_full_set
+        return pg_full_set & pg_full_set
 
     def is_panel(self):
         test_square = self._obj
