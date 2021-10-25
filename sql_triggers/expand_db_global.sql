@@ -112,4 +112,22 @@ END LOOP;
 END;
 $$;
 
--- Cleanup
+-- Cleanup all the garbage temp tables created
+
+
+DO $$
+    DECLARE months INT;
+    DECLARE qtext TEXT;
+    BEGIN
+    FOR months IN SELECT month_id FROM temp_months_w_changes LOOP
+        qtext = 'DROP TABLE IF EXISTS month_%s;';
+        qtext = format(qtext,months);
+        RAISE NOTICE '%',qtext;
+        EXECUTE (qtext);
+        end loop;
+    DROP TABLE IF EXISTS temp_months_w_changes;
+END
+$$;
+
+
+-- Done linking pgm to cm.
