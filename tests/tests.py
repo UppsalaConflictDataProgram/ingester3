@@ -147,3 +147,8 @@ assert new_africa.c.full_set(in_africa = True) == True
 
 new_me = pd.DataFrame.c.new_me()
 assert new_me.c.full_set(in_me = True) == True
+
+new_africa = pd.DataFrame.c.new_africa()
+new_africa['month_id'] = 100
+x = new_africa.cm.full_set(in_africa=True, min_month=100, max_month=100)
+assert x==True

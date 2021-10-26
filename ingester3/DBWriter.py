@@ -477,6 +477,8 @@ class DBWriter(object):
             trans = con.begin()
             con.execute(sql_copy)
             con.execute(sql_reference)
+            trans.commit()
+            trans = con.begin()
             con.execute(sql_trigger)
             trans.commit()
             cache_manager(clear=True)
