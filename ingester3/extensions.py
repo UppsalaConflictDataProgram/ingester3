@@ -972,10 +972,15 @@ class PGMAccessor(PgAccessor, MAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('priogrid_month')[['id', 'priogrid_gid', 'month_id']]
+        # These lines are not strictly needed but Pandas is not smart enough to do this on its own.
+        db_ids = db_ids[(db_ids.month_id >= z.month_id.min()) & (db_ids.month_id <= z.month_id.max())]
+        db_ids = db_ids[db_ids.priogrid_gid.isin(set(z.pg_id))]
+
         z['pgm_id'] = z.merge(db_ids,
                               left_on=['pg_id', 'month_id'],
                               right_on=['priogrid_gid', 'month_id'],
                               how='left').id
+
         return z
 
     def db_id(self):

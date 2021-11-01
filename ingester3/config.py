@@ -52,7 +52,11 @@ source_db_path = f'postgresql://{views_user}@{views_host}:5432/{views_db}'
 source_db_path = source_db_path if os.getenv('INGESTER_URI') is None else os.getenv('INGESTER_URI')
 
 source_cache_path = os.path.join(os.path.expanduser(working_dir), 'db_cache')
+secondary_cache_path = os.path.join(os.path.expanduser(working_dir), 'second_cache')
+
 inner_cache_path = os.path.join(os.path.expanduser(working_dir), 'inner_cache')
+#os.makedirs(secondary_cache_path, exist_ok=True)
+
 log_file = os.path.join(os.path.expanduser(working_dir), 'log.log')
 
 log_level = 'DEBUG' if os.getenv('INGESTER_LOGGING') is None else os.getenv('INGESTER_LOGGING')

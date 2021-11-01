@@ -3,16 +3,35 @@ import warnings
 import pandas as pd
 from diskcache import Cache
 from .config import source_db_path
-from .config import source_cache_path
+from .config import source_cache_path, secondary_cache_path
 
-cache = Cache(source_cache_path)
+cache = Cache(source_cache_path, size_limit=int(10e9))
+secondary_cache = Cache(secondary_cache_path, size_limit=int(10e9))
 
 #source_db = 'postgres://mihai@hermes:5432/fallback3'
-views_engine = sa.create_engine(source_db_path)
+views_engine = sa.create_engine(source_db_path, pool_recycle=3600, execution_options=dict(stream_results=True))
 
 meta = sa.MetaData(schema='prod', bind=views_engine)
 
-def cache_manager(clear = False):
+
+def cache_manager(clear=False, secondary_clear=False):
+    """
+    :param clear: bool, force the primary cache to be destroyed and renewed.
+    :param secondary_clear: bool, force the secondary cache to be destroyed
+    :return: Nothing
+
+    There are two db caches:
+    - the primary cache, that gets renewed whenever the database is DDL modified,
+        i.e. when new columns or tables are created or destroyed.
+        This happens when new data is inserted or old data is expungd
+    - the secondary cache, that only gets renewed when a call is made. This contains the basic ID structures of the DB
+        - these never change, so there is no point in renewing this ever, unless the db_id structures are recreated.
+
+    The primary cache relies on triggers from the DB, that generate a series of timestamps, that are stored both here
+    and on the DB. If the timestamp here does not match the DB timestamp the cache is autoflushed.
+    """
+    if clear:
+        print("Clearing Cache")
     """If the database timestamp is different from the local timestamp,
     flush the cache, and store a new cache timestamp cookie"""
     try:
@@ -38,10 +57,14 @@ def cache_manager(clear = False):
         raise ConnectionError("Cannot connect to the DB and you have NO working cache!")
 
     if (local_stamp < db_stamp) or (db_stamp > 0 and clear):
+        print("Clearing Cache...")
         cache.clear(retry=True)
         with open('timestamp.cache',mode='w') as f: f.write(str(db_stamp))
 
-    #print (local_stamp, db_stamp)
+    if secondary_clear:
+        print("Clearing Secondary Cache...")
+        secondary_cache.clear(retry=True)
+
 
 @cache.memoize(typed=True, expire=None, tag='fetch_children')
 def fetch_children(loa_table, views_engine = views_engine):
@@ -85,7 +108,7 @@ def flash_fetch_definitions(schema,table):
 
 
 @cache.memoize(typed=True, expire=None, tag='fetch_columns')
-def fetch_columns(loa_table):
+def fetch_columns(loa_table, data_summarization=False):
     tables = fetch_children(loa_table)
     conn = views_engine.connect()
     mapper = []
@@ -100,16 +123,22 @@ def fetch_columns(loa_table):
                                     autoload_with=views_engine)
             inspector = sa.inspect(views_tables)
             for column in inspector.c:
-                try:
-                    min_value = conn.execute(sa.func.min(column)).fetchone()[0]
-                    max_value = conn.execute(sa.func.max(column)).fetchone()[0]
-                except sa.exc.ProgrammingError:
+                if data_summarization:
+                    try:
+                        min_value = conn.execute(sa.func.min(column)).fetchone()[0]
+                        max_value = conn.execute(sa.func.max(column)).fetchone()[0]
+                    except sa.exc.ProgrammingError:
+                        min_value = None
+                        max_value = None
+                    try:
+                        mean_value = float(conn.execute(sa.func.avg()).fetchone()[0])
+                    except Exception:
+                        mean_value = None
+                else:
                     min_value = None
                     max_value = None
-                try:
-                    mean_value = float(conn.execute(sa.func.avg()).fetchone()[0])
-                except Exception:
                     mean_value = None
+
                 try:
                     col_type = column.type.python_type
                 except NotImplementedError:
@@ -157,13 +186,24 @@ def fetch_ids(loa_table):
             fk_data = conn.execute(query_fk).fetchall()
             return pk_data, fk_data
 
-@cache.memoize(typed=True, expire=None, tag="fetch_ids_df")
+
+@secondary_cache.memoize(typed=True, expire=None, tag="fetch_ids_df")
 def fetch_ids_df(loa_table):
     primary_keys, foreign_keys = fetch_keys(loa_table)
+    print(f"Instantiating {loa_table}, please wait...")
+    if loa_table=='priogrid_month':
+        print(f"PGM table can take up to 20 minutes, but will not be repeated...")
     keys = primary_keys+foreign_keys
     query_keys = sa.select(keys)
+    i = 0
+    result = pd.DataFrame()
     with views_engine.connect() as conn:
-        return pd.read_sql(query_keys, con=conn)
+        for table in pd.read_sql(query_keys, con=conn, chunksize=50000):
+            i += 1
+            print (f"Fetching rows : {(i-1)*50000} - {i*50000}")
+            result = result.append(table, ignore_index=True)
+    return result
+
 
 
 def fetch_data(loa_table, columns=None):

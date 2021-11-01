@@ -468,8 +468,8 @@ class DBWriter(object):
 	  REFERENCES prod.{self.tablespace}(id);
         """)
 
-        sql_trigger = sa.text(f"""CREATE TRIGGER check_update_{tname} AFTER UPDATE ON' ||
-           ' prod.{tname} FOR EACH STATEMENT EXECUTE PROCEDURE update_timestamp()'""")
+        sql_trigger = sa.text(f"""CREATE TRIGGER check_update_{tname} AFTER UPDATE ON 
+        prod.{tname} FOR EACH STATEMENT EXECUTE PROCEDURE update_timestamp()""")
 
         self.__print(msg = "Creating New Table using following SQL:", new_table_query = str(sql_copy))
 
