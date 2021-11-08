@@ -73,6 +73,18 @@ class CAccessor:
             ok = False
         return ok
 
+    @staticmethod
+    def __soft_validate_name(row, name_col='name', month_col=None):
+        try:
+            if month_col is not None:
+                _ = Country.from_name(row[name_col], int(row[month_col]))
+            else:
+                _ = Country.from_name(row[name_col])
+            ok = True
+        except (ValueError, KeyError, AttributeError):
+            ok = False
+        return ok
+
     @classmethod
     def soft_validate_iso(cls, df, iso_col='iso', month_col=None):
         z = df.copy()
@@ -91,6 +103,16 @@ class CAccessor:
             return z
         soft_validator = partial(CAccessor.__soft_validate_gw, gw_col=gw_col, month_col=month_col)
         z['valid_id'] = df.apply(soft_validator, axis=1)
+        return z
+
+    @classmethod
+    def soft_validate_name(cls, df, name_col='name', month_col=None):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['valid_name'] = None
+            return z
+        soft_validator = partial(CAccessor.__soft_validate_name, name_col=name_col, month_col=month_col)
+        z['valid_name'] = df.apply(soft_validator, axis=1)
         return z
 
     @classmethod
@@ -185,6 +207,27 @@ class CAccessor:
             z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=int(row[gw_col]),
                                                                  month_id=int(row[month_col])).id,
                                  axis=1)
+
+        return z
+
+    @classmethod
+    def from_name(cls, df, name_col='name', month_col=None):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['c_id'] = None
+            return z
+        if month_col is None:
+            z['c_id'] = df.apply(
+                lambda row: Country.from_name(name=row[name_col]).id, axis=1
+            )
+        else:
+            z['c_id'] = df.apply(
+                lambda row: Country.from_name(
+                    name=row[name_col],
+                    month_id=int(row[month_col])
+                ).id,
+                axis=1
+            )
 
         return z
 

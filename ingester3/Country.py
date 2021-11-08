@@ -104,6 +104,10 @@ class Country(object):
         gwcode = int(gwcode)
         return Country.__extid2id(gwcode, name_var='gwcode', month_id=month_id)
 
+    @staticmethod
+    def name2id(name, month_id = None):
+        return Country.__extid2id(name, name_var='name', month_id=month_id)
+
     @classmethod
     def from_iso(cls, iso, month_id = None):
         return cls(cls.iso2id(iso, month_id))
@@ -111,6 +115,10 @@ class Country(object):
     @classmethod
     def from_gwcode(cls, gwcode, month_id = None):
         return cls(cls.gwcode2id(gwcode, month_id))
+
+    @classmethod
+    def from_name(cls, name, month_id = None):
+        return cls(cls.name2id(name, month_id))
 
 
     def __populate_attributes(self):
