@@ -183,3 +183,6 @@ new_africa = pd.DataFrame.c.new_africa()
 new_africa['month_id'] = 100
 x = new_africa.cm.full_set(in_africa=True, min_month=100, max_month=100)
 assert x==True
+
+df = fetch_ids_df('priogrid_month')
+print(df.shape)

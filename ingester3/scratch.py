@@ -2,7 +2,7 @@ import sqlalchemy as sa
 import warnings
 import pandas as pd
 from diskcache import Cache
-from .config import source_db_path
+from .config import source_db_path, working_dir
 from .config import source_cache_path, secondary_cache_path
 
 cache = Cache(source_cache_path, size_limit=int(10e9))
@@ -12,6 +12,37 @@ secondary_cache = Cache(secondary_cache_path, size_limit=int(10e9))
 views_engine = sa.create_engine(source_db_path, pool_recycle=3600, execution_options=dict(stream_results=True))
 
 meta = sa.MetaData(schema='prod', bind=views_engine)
+
+
+def fetch_db_timestamp(stamp_level = 'ddl_stamp'):
+    "stamp_level has to be one of the stamping levels"
+    try:
+        timestamp_table = sa.Table('update_stamp',
+                                   sa.MetaData(),
+                                   schema='prod_metadata',
+                                   autoload=True,
+                                   autoload_with=views_engine)
+        query = sa.select([timestamp_table.c[stamp_level]])
+        with views_engine.connect() as conn:
+            db_stamp = conn.execute(query).fetchone()[0]
+            ##print(db_stamp)
+    except sa.exc.OperationalError:
+        db_stamp = 0
+        warnings.warn("No database connection! Will try to use cache for read-only ops as much as I can")
+    return db_stamp
+
+
+def fetch_local_timestamp(stamp_level='ddl_stamp'):
+    try:
+        with open(f'{working_dir}/{stamp_level}.cache', mode='r') as f:
+            local_stamp = int(f.read())
+    except FileNotFoundError:
+        local_stamp = 0
+    return local_stamp
+
+
+def write_local_timestamp(db_stamp, stamp_level = 'ddl_stamp'):
+    with open(f'{working_dir}/{stamp_level}.cache', mode='w') as f: f.write(str(db_stamp))
 
 
 def cache_manager(clear=False, secondary_clear=False):
@@ -30,41 +61,36 @@ def cache_manager(clear=False, secondary_clear=False):
     The primary cache relies on triggers from the DB, that generate a series of timestamps, that are stored both here
     and on the DB. If the timestamp here does not match the DB timestamp the cache is autoflushed.
     """
-    if clear:
-        print("Clearing Cache")
     """If the database timestamp is different from the local timestamp,
-    flush the cache, and store a new cache timestamp cookie"""
-    try:
-        timestamp_table = sa.Table('update_stamp',
-                                   sa.MetaData(),
-                                   schema='prod_metadata',
-                                   autoload=True,
-                                   autoload_with=views_engine)
-        query = sa.select([timestamp_table.c.ddl_stamp])
-        with views_engine.connect() as conn:
-            db_stamp = conn.execute(query).fetchone()[0]
-            ##print(db_stamp)
-    except sa.exc.OperationalError:
-        db_stamp = 0
-        warnings.warn("No database connection! Will try to use cache for read-only ops as much as I can")
+        flush the cache, and store a new cache timestamp cookie"""
 
-    try:
-        with open('timestamp.cache', mode='r') as f: local_stamp = int(f.read())
-    except FileNotFoundError:
-        local_stamp = 0
-
-    if local_stamp+db_stamp == 0:
-        raise ConnectionError("Cannot connect to the DB and you have NO working cache!")
-
-    if (local_stamp < db_stamp) or (db_stamp > 0 and clear):
-        print("Clearing Cache...")
+    if clear:
+        db_stamp = fetch_db_timestamp('ddlm_stamp')
+        print("Clearing Cache")
         cache.clear(retry=True)
-        with open('timestamp.cache',mode='w') as f: f.write(str(db_stamp))
+        write_local_timestamp(db_stamp, 'ddlm_stamp')
+    else:
+        db_stamp = fetch_db_timestamp('ddlm_stamp')
+        local_stamp = fetch_local_timestamp('ddlm_stamp')
+        if local_stamp+db_stamp == 0:
+            raise ConnectionError("Cannot connect to the DB and you have NO working cache!")
+        if local_stamp < db_stamp:
+            print("Clearing Cache")
+            cache.clear(retry=True)
+            write_local_timestamp(db_stamp, 'ddlm_stamp')
 
     if secondary_clear:
         print("Clearing Secondary Cache...")
         secondary_cache.clear(retry=True)
-
+        db_secondary = fetch_db_timestamp('id_colset_stamp')
+        write_local_timestamp(db_secondary, 'id_colset_stamp')
+    else:
+        db_secondary = fetch_db_timestamp('id_colset_stamp')
+        local_secondary = fetch_local_timestamp('id_colset_stamp')
+        if local_secondary < db_secondary:
+            print("Clearing Secondary Cache...")
+            secondary_cache.clear(retry=True)
+            write_local_timestamp(db_stamp, 'id_colset_stamp')
 
 @cache.memoize(typed=True, expire=None, tag='fetch_children')
 def fetch_children(loa_table, views_engine = views_engine):
@@ -191,7 +217,7 @@ def fetch_ids(loa_table):
 def fetch_ids_df(loa_table):
     primary_keys, foreign_keys = fetch_keys(loa_table)
     print(f"Instantiating {loa_table}, please wait...")
-    if loa_table=='priogrid_month':
+    if loa_table =='priogrid_month':
         print(f"PGM table can take up to 20 minutes, but will not be repeated...")
     keys = primary_keys+foreign_keys
     query_keys = sa.select(keys)

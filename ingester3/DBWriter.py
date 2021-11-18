@@ -74,6 +74,14 @@ class DBWriter(object):
         key_col_name = level+'_id'
         np.dtype('int_')
 
+        if pandas_obj.shape[1] > 512:
+            raise NotImplementedError("""We haven't implemented ingestion of very high-column sets!
+            Split your df across columns, but think well, why do you want to have 500 columns to import?
+            How are we going to use it?""")
+
+        if pandas_obj.shape[0] == 0:
+            raise KeyError("""Nothing to import, empty dataframe.""")
+
         if key_col_name not in pandas_obj.columns:
             raise KeyError(f'No {key_col_name} is not in the data!')
 
@@ -259,6 +267,11 @@ class DBWriter(object):
         self.__print(msg="The table to be shipped to DB is : ",df=self.df.head(3))
 
     def write_temp(self):
+        """
+        Take a dataframe and write to a perma-temporary table, in the PostgresSQL database.
+        Try a very simple approach firt
+        :return: 0 on success.
+        """
         if self.recipe is None:
             self.publish()
 

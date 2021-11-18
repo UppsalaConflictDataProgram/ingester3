@@ -960,7 +960,7 @@ class PGMAccessor(PgAccessor, MAccessor):
         extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
         extent2 = pd.DataFrame({'key': 0, 'month_id': list(self._obj.month_id.unique())})
         extent3 = extent1.merge(extent2, on='key')[['pg_id','month_id']]
-        #print(extent.head())
+        #print(extent.head())a
         extent = extent3.merge(self._obj, how='left', on=['pg_id','month_id'])
         #print(extent.head())
         if 'pgm_id' in self._obj:
@@ -1113,3 +1113,6 @@ class PGYAccessor(PgAccessor):
         z = z[z.pgy_id.notna()]
         z['pgy_id'] = z.pgy_id.astype('int64')
         return z
+
+
+
