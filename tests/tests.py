@@ -10,11 +10,11 @@ cache_manager(False)
 #Let's populate the caches
 
 pgm_ids = fetch_ids_df('priogrid_month')
-assert pgm_ids.shape[0] == 55224936
+assert pgm_ids.shape[0] == 11169720
 pgy_ids = fetch_ids_df('priogrid_year')
 assert pgy_ids.shape[0] == 4602078
 cm_ids = fetch_ids_df('country_month')
-assert cm_ids.shape[0] == 161646
+assert cm_ids.shape[0] == 158230
 cy_ids = fetch_ids_df('country_year')
 assert cy_ids.shape[0] == 13510
 
@@ -183,6 +183,3 @@ new_africa = pd.DataFrame.c.new_africa()
 new_africa['month_id'] = 100
 x = new_africa.cm.full_set(in_africa=True, min_month=100, max_month=100)
 assert x==True
-
-df = fetch_ids_df('priogrid_month')
-print(df.shape)
