@@ -858,6 +858,13 @@ class PGMAccessor(PgAccessor, MAccessor):
         return False
 
     @classmethod
+    def from_datetime_latlon(cls, df, datetime_col='datetime', lat_col='lat', lon_col='lon'):
+        z = df.copy()
+        z = super().from_datetime(z, datetime_col = datetime_col)
+        z = super().from_latlon(z, lat_col=lat_col, lon_col=lon_col)
+        return z
+
+    @classmethod
     def from_year_month_latlon(cls, df, year_col='year', month_col='month', lat_col='lat', lon_col='lon'):
         z = df.copy()
         z = super().from_year_month(z, year_col=year_col, month_col=month_col)

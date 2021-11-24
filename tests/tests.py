@@ -183,3 +183,18 @@ new_africa = pd.DataFrame.c.new_africa()
 new_africa['month_id'] = 100
 x = new_africa.cm.full_set(in_africa=True, min_month=100, max_month=100)
 assert x==True
+
+print ("Assert datetime_lat_lon")
+c_pgm = pd.DataFrame({'lat':[25.29,11.29,-2.74,-0.75], 'lon':[110,-49,-32.44,7.32],
+                     'date':['2020-01-09','2019-12-20','2021-11-03','2020-01-01'],
+                     'x_data':[1,2,5,9]})
+
+c_pgm['date'] = pd.to_datetime(c_pgm.date)
+
+c_pgm = pd.DataFrame.pgm.from_datetime_latlon(c_pgm, datetime_col='date', lat_col='lat', lon_col='lon')
+
+assert c_pgm.loc[3].pg_id == 128535
+assert c_pgm.loc[0].pg_id == 166181
+assert c_pgm.loc[1].month_id == 480
+assert c_pgm.loc[2].month_id == 503
+assert c_pgm.loc[3].month_id == 481
