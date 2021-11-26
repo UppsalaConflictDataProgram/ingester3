@@ -198,3 +198,5 @@ assert c_pgm.loc[0].pg_id == 166181
 assert c_pgm.loc[1].month_id == 480
 assert c_pgm.loc[2].month_id == 503
 assert c_pgm.loc[3].month_id == 481
+
+assert c_pgm.pgm.full_set() == False

@@ -905,8 +905,8 @@ class PGMAccessor(PgAccessor, MAccessor):
 
     def full_set(self, land_only=True, max_month=None):
         pg_full_set = super(PgAccessor, self).full_set(land_only)
-        m_full_set = super(MAccessor, self).full_set(max_month)
-        return pg_full_set & pg_full_set
+        m_full_set = MAccessor(self._obj).full_set(max_month)
+        return pg_full_set & m_full_set
 
     def is_panel(self):
         test_square = self._obj
