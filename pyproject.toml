@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ingester3"
-version = "1.0.1"
+version = "1.0.2"
 description = "Data ingester for ViEWS3."
 authors = ["Mihai Croicu <mihai.croicu@pcr.uu.se>"]
 license = "MIT"
