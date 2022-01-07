@@ -5,7 +5,7 @@ from ingester3.scratch import fetch_ids_df
 from warnings import catch_warnings
 import numpy as np
 
-cache_manager(False)
+cache_manager(True)
 
 #Let's populate the caches
 

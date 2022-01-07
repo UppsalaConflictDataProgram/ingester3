@@ -661,6 +661,12 @@ class CYAccessor(CAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('country_year')[['id', 'country_id', 'year_id']]
+
+        try:
+            del z['id']
+        except:
+            pass
+        
         z['cy_id'] = z.merge(db_ids,
                              left_on=['c_id', 'year_id'],
                              right_on=['country_id', 'year_id'],
@@ -827,8 +833,8 @@ class CMAccessor(CAccessor, MAccessor):
         return z
 
     @staticmethod
-    def __db_id(z):
-        #z = self._obj.copy()
+    def __db_id(df):
+        z = df.copy().reset_index(drop=True)
         db_ids = fetch_ids_df('country_month')[['id', 'country_id', 'month_id']]
         z['cm_id'] = z.merge(db_ids,
                              left_on=['c_id', 'month_id'],
@@ -977,11 +983,17 @@ class PGMAccessor(PgAccessor, MAccessor):
         return extent
 
     @staticmethod
-    def __db_id(z):
+    def __db_id(df):
+        z = df.copy().reset_index(drop=True)
         db_ids = fetch_ids_df('priogrid_month')[['id', 'priogrid_gid', 'month_id']]
         # These lines are not strictly needed but Pandas is not smart enough to do this on its own.
         db_ids = db_ids[(db_ids.month_id >= z.month_id.min()) & (db_ids.month_id <= z.month_id.max())]
         db_ids = db_ids[db_ids.priogrid_gid.isin(set(z.pg_id))]
+
+        try:
+            del z['id']
+        except:
+            pass
 
         z['pgm_id'] = z.merge(db_ids,
                               left_on=['pg_id', 'month_id'],
@@ -1103,6 +1115,10 @@ class PGYAccessor(PgAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('priogrid_year')[['id', 'priogrid_gid', 'year_id']]
+        try:
+            del z['id']
+        except:
+            pass
         z['pgy_id'] = z.merge(db_ids, left_on=['pg_id', 'year_id'],
                               right_on=['priogrid_gid', 'year_id'],
                               how='left').id
