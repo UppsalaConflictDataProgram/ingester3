@@ -666,7 +666,8 @@ class CYAccessor(CAccessor):
             del z['id']
         except:
             pass
-        
+
+        z = z.copy().reset_index(drop=True)
         z['cy_id'] = z.merge(db_ids,
                              left_on=['c_id', 'year_id'],
                              right_on=['country_id', 'year_id'],
@@ -1119,6 +1120,7 @@ class PGYAccessor(PgAccessor):
             del z['id']
         except:
             pass
+        z = z.copy().reset_index(drop=True)
         z['pgy_id'] = z.merge(db_ids, left_on=['pg_id', 'year_id'],
                               right_on=['priogrid_gid', 'year_id'],
                               how='left').id

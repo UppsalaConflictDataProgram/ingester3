@@ -227,7 +227,7 @@ def fetch_ids_df(loa_table):
         for table in pd.read_sql(query_keys, con=conn, chunksize=50000):
             i += 1
             print (f"Fetching rows : {(i-1)*50000} - {i*50000}")
-            result = result.append(table, ignore_index=True)
+            result = pd.concat([result,table], ignore_index=True)
     return result
 
 
