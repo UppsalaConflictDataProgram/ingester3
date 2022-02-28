@@ -230,6 +230,20 @@ def fetch_ids_df(loa_table):
             result = result.append(table, ignore_index=True)
     return result
 
+@cache.memoize(typed=True, expire=None, tag='counter_fetch')
+def fetch_counts(loa_table):
+    views_table = sa.Table(loa_table,
+                            sa.MetaData(),
+                            schema='prod',
+                            autoload=True,
+                            autoload_with=views_engine)
+    query = sa.select([sa.func.count(views_table.c.id)])
+    with views_engine.connect() as conn:
+        try:
+            data = conn.execute(query).fetchall()[0][0]
+        except Exception:
+            raise KeyError("I cannot generate a count on this table.")
+        return data
 
 
 def fetch_data(loa_table, columns=None):

@@ -661,6 +661,7 @@ class CYAccessor(CAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('country_year')[['id', 'country_id', 'year_id']]
+        z = z.copy().reset_index(drop=True)
 
         try:
             del z['id']
@@ -1115,6 +1116,7 @@ class PGYAccessor(PgAccessor):
     @staticmethod
     def __db_id(z):
         db_ids = fetch_ids_df('priogrid_year')[['id', 'priogrid_gid', 'year_id']]
+        z = z.copy().reset_index(drop=True)
         try:
             del z['id']
         except:
