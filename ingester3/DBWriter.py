@@ -235,7 +235,7 @@ class DBWriter(object):
                         in_panel_wipe=self.in_panel_wipe,
                         out_panel_wipe=self.out_panel_wipe,
                         in_panel_zero=self.in_panel_zero,
-                        out_panel_zero=self.out_panel_wipe
+                        out_panel_zero=self.out_panel_zero
 
                     )
                     # print(column_match)
@@ -532,8 +532,10 @@ class DBWriter(object):
         old_table_id = [i for i in self.recipe
                         if not i.new_table and '_id' not in i.destination_name]
         old_table_id = [i for i in old_table_id if i.destination_name not in self.RESERVED_WORDS]
-        self.__print('UPSERTING INTO : ', [i.name for i in old_table_id])
-
+        try:
+            self.__print('UPSERTING INTO : ', [i.destination_name for i in old_table_id])
+        except:
+            self.__print('UPSERTING INTO : ', [i.name for i in old_table_id])
 
         for column in old_table_id:
             self.__print(msg="Working on column:", column=column)
@@ -555,9 +557,11 @@ class DBWriter(object):
                 update_queries += [sa.text(inner_wipe).bindparams(null_zero=null_zero)]
 
             if column.out_panel_wipe or column.out_panel_zero:
+                #print ('STATUS :::', column.out_panel_wipe, column.out_panel_zero)
                 out_wipe = wiper_update + f"(SELECT id FROM prod.{self.tablespace} base " \
                                           f"{self.__inner_where_query(outside=True)})"
                 null_zero = self.__zero_type(column.destination_type) if column.out_panel_zero else None
+                #print ('OPV  ',null_zero)
                 # print("OUTER", null_zero, column.out_panel_wipe, column.out_panel_zero)
                 update_queries += [sa.text(out_wipe).bindparams(null_zero=null_zero)]
 
