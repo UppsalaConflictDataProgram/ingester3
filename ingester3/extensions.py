@@ -831,15 +831,15 @@ class CMAccessor(CAccessor, MAccessor):
         return structure[structure.month_id <= max_month]
 
     @classmethod
-    def new_africa(cls):
-        ids = CMAccessor.new_structure()
+    def new_africa(cls, max_month=621):
+        ids = CMAccessor.new_structure(max_month=max_month)
         africa = CAccessor.new_structure()
         africa = africa[africa.c.in_africa].c_id
         return ids[ids.c_id.isin(africa)]
 
     @classmethod
-    def new_middle_east(cls):
-        ids = CMAccessor.new_structure()
+    def new_middle_east(cls, max_month=621):
+        ids = CMAccessor.new_structure(max_month=max_month)
         me = CAccessor.new_structure()
         me = me[me.c.in_me].c_id
         return ids[ids.c_id.isin(me)]
