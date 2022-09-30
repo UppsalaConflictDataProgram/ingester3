@@ -5,7 +5,7 @@ description = "Data ingester for ViEWS3."
 authors = ["Mihai Croicu <mihai.croicu@pcr.uu.se>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/UppsalaConflictDataProgram/ingester3:>"
+homepage = "https://github.com/UppsalaConflictDataProgram/ingester3>"
 
 
 
