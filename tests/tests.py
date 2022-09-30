@@ -1,3 +1,5 @@
+# TODO: move this to a proper testing library one day
+
 import pandas as pd
 from ingester3.extensions import *
 from ingester3.Country import Country
@@ -142,6 +144,44 @@ assert pg_valid.valid_id.sum() == 1
 m_valid = pd.DataFrame({"month_id":[100,200,None, -1]})
 m_valid = pd.DataFrame.m.soft_validate(m_valid)
 assert m_valid.valid_id.sum() == 2
+
+
+print("ASSERT ISO->CY")
+
+# Test if the country-year creation toolkit works using the country year panels we have
+
+cc0 = pd.DataFrame({'code':['SUN','DDR','SRB','RUS','SCG','SRB','SAU','SCG','SUN','DDR'],
+'year':[1989,1986,2009,2015,1996,2020,2019,2020,2019,2017],
+'data':[1,2,9,4,5,6,0,4,5,6]})
+
+cc1 = pd.DataFrame({'code':[553,'212',625,625,365,365,365,626,626],
+                    'year':[2000,2000,1986,2015,1982,1991,2010,2000,2020],
+                    'data':[1,2,4,5,2,1,4,2,9]})
+
+cc0 = pd.DataFrame.c.soft_validate_iso_year(cc0, iso_col='code', year_col='year', at_month=6)
+assert cc0[cc0.valid_id].reset_index()['index'].max() == 6
+cc0 = pd.DataFrame.c.from_iso_year(cc0.head(7), iso_col='code', year_col='year', at_month=6)
+assert cc0.c_id.sum() == 1264
+
+cc1 = pd.DataFrame.c.soft_validate_gwcode_year(cc1, gw_col='code', year_col='year', at_month=11)
+assert cc1[cc1.valid_id == True].reset_index()['index'].sum() == 29
+
+# This should fail, since there is one country in the df that does not exist in our panels
+# Catch and pass, if passes without tripping raise.
+try:
+    not_ok = False
+    cc2 = pd.DataFrame.c.from_gwcode_year(cc1, gw_col='code', year_col='year', at_month=11)
+    not_ok = True
+except ValueError:
+    pass
+finally:
+    if not_ok:
+        raise ValueError
+
+cc1 = pd.DataFrame.c.from_gwcode_year(cc1.head(7), gw_col='code', year_col='year', at_month=11)
+assert cc1.c_id.sum() == 1079
+
+
 
 print("Assert PGM_S")
 

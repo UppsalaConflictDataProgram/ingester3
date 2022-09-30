@@ -80,7 +80,7 @@ class CAccessor:
             z['valid_id'] = None
             return z
         soft_validator = partial(CAccessor.__soft_validate_iso, iso_col=iso_col, month_col=month_col)
-        z['valid_id'] = df.apply(soft_validator, axis=1)
+        z['valid_id'] = z.apply(soft_validator, axis=1)
         return z
 
     @classmethod
@@ -90,7 +90,31 @@ class CAccessor:
             z['valid_id'] = None
             return z
         soft_validator = partial(CAccessor.__soft_validate_gw, gw_col=gw_col, month_col=month_col)
-        z['valid_id'] = df.apply(soft_validator, axis=1)
+        z['valid_id'] = z.apply(soft_validator, axis=1)
+        return z
+
+    @staticmethod
+    def make_helper_column(df, year_col, month):
+        if not(1<=month<=12):
+            raise ValueError(f"Month {month} should be between 1 and 12!")
+
+        df['__z_local_month_id'] = df.apply(lambda row: ViewsMonth.from_year_month(year=row[year_col],
+                                                                              month=month).id,
+                                     axis=1)
+        return df
+
+    @classmethod
+    def soft_validate_gwcode_year(cls, df, gw_col:str, year_col:str, at_month:int):
+        z = CAccessor.make_helper_column(df=df.copy(), year_col=year_col, month=at_month)
+        z = CAccessor.soft_validate_gwcode(z, gw_col=gw_col, month_col = '__z_local_month_id')
+        del z['__z_local_month_id']
+        return z
+
+    @classmethod
+    def soft_validate_iso_year(cls, df, iso_col:str, year_col:str, at_month:int):
+        z = CAccessor.make_helper_column(df=df.copy(), year_col=year_col, month=at_month)
+        z = CAccessor.soft_validate_iso(z, iso_col=iso_col, month_col = '__z_local_month_id')
+        del z['__z_local_month_id']
         return z
 
     @classmethod
@@ -167,9 +191,9 @@ class CAccessor:
             z['c_id'] = None
             return z
         if month_col is None:
-            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper()).id, axis=1)
+            z['c_id'] = z.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper()).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper(),
+            z['c_id'] = z.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper(),
                                                               month_id=int(row[month_col])).id, axis=1)
         return z
 
@@ -180,14 +204,39 @@ class CAccessor:
             z['c_id'] = None
             return z
         if month_col is None:
-            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
+            z['c_id'] = z.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col]).id, axis=1)
         else:
-            z['c_id'] = df.apply(lambda row: Country.from_gwcode(gwcode=int(row[gw_col]),
+            z['c_id'] = z.apply(lambda row: Country.from_gwcode(gwcode=int(row[gw_col]),
                                                                  month_id=int(row[month_col])).id,
                                  axis=1)
 
         return z
 
+    @classmethod
+    def from_iso_year(cls, df, iso_col: str, year_col: str, at_month: int):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['c_id'] = None
+            return z
+        z = CAccessor.make_helper_column(df=df.copy(), year_col=year_col, month=at_month)
+        z['c_id'] = z.apply(lambda row: Country.from_iso(iso=row[iso_col].strip().upper(),
+                                                          month_id=int(row['__z_local_month_id']))
+                             .id, axis=1)
+        del z['__z_local_month_id']
+        return z
+
+    @classmethod
+    def from_gwcode_year(cls, df, gw_col: str, year_col: str, at_month: int):
+        z = df.copy()
+        if z.shape[0] == 0:
+            z['c_id'] = None
+            return z
+        z = CAccessor.make_helper_column(df=df.copy(), year_col=year_col, month=at_month)
+        z['c_id'] = z.apply(lambda row: Country.from_gwcode(gwcode=row[gw_col],
+                                                             month_id=int(row['__z_local_month_id']))
+                             .id, axis=1)
+        del z['__z_local_month_id']
+        return z
 
     @classmethod
     def new_structure(cls):
@@ -219,10 +268,8 @@ class CAccessor:
         else:
             available_countries = available_countries.c_id
 
-        #print(available_countries)
         av_c = set(available_countries)
         df_c = set(self._obj.c_id)
-        #print (av_c, df_c)
         return av_c == df_c
 
     def is_unique(self):
@@ -256,7 +303,6 @@ class PgAccessor:
         :param obj: An Pandas DF containing a pg_id column
         :return: Nothing. Will crash w/ ValueError if invalid, per Pandas documentation
         """
-        # print (obj.columns)
         if "pg_id" not in obj.columns:
             raise AttributeError("Must have a pg_id column!")
         mid = obj.pg_id.copy()
@@ -431,7 +477,6 @@ class MAccessor():
 
     @staticmethod
     def _validate(obj):
-        # print (obj.columns)
         if "month_id" not in obj.columns:
             raise AttributeError("Must have a month_id column!")
         mid = obj.month_id.copy()
@@ -975,9 +1020,7 @@ class PGMAccessor(PgAccessor, MAccessor):
         extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
         extent2 = pd.DataFrame({'key': 0, 'month_id': list(self._obj.month_id.unique())})
         extent3 = extent1.merge(extent2, on='key')[['pg_id','month_id']]
-        #print(extent.head())a
         extent = extent3.merge(self._obj, how='left', on=['pg_id','month_id'])
-        #print(extent.head())
         if 'pgm_id' in self._obj:
             extent = PGMAccessor.__db_id(extent)
         if fill_value is not None:
@@ -1105,9 +1148,7 @@ class PGYAccessor(PgAccessor):
         extent1 = pd.DataFrame({'pg_id': list(self.get_bbox()), 'key': 0})
         extent2 = pd.DataFrame({'key': 0, 'year_id': list(self._obj.year_id.unique())})
         extent3 = extent1.merge(extent2, on='key')[['pg_id','year_id']]
-        #print(extent.head())
         extent = extent3.merge(self._obj, how='left', on=['pg_id','year_id'])
-        #print(extent.head())
         if 'pgy_id' in self._obj:
             extent = PGYAccessor.__db_id(extent)
         if fill_value is not None:
