@@ -18,6 +18,20 @@ class Priogrid(object):
     def __str__(self):
         return f'Priogrid(id={self.id}) #=> row:{self.row}, col:{self.col}, lat:{self.lat}, lon:{self.lon}'
 
+    def country(self, year=None):
+        """
+        Give the country . Year is required since otherwise year
+        Note : Implementation is currently at yearly level as PGM is only implemented for Africa and ME
+        And PGM wou
+        :param year:
+        :return: a Country object containing the respective country for a given year.
+        """
+        from .Country import Country
+        from .ViewsMonth import ViewsMonth
+        if year is None:
+            year = ViewsMonth.now().year
+        return Country.from_priogrid(self.id, year=year)
+
     @classmethod
     def from_lat_lon(cls, lat: float, lon: float) -> Priogrid:
         """
@@ -170,3 +184,7 @@ class Priogrid(object):
     @staticmethod
     def row2lat(row):
         return (-90 + (row * 0.5)) - 0.25
+
+    def __eq__(self, other):
+        if isinstance(other, Priogrid):
+            return self.id == other.id

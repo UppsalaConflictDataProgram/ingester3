@@ -34,7 +34,7 @@ class Country(object):
                f'in_me:{self.in_me}'
 
     @staticmethod
-    @inner_cache.memoize(typed=True, expire=600, tag="country_info")
+    @inner_cache.memoize(typed=True, expire=600000, tag="country_info")
     def __fetch_descriptors():
         columns = ['id', 'name', 'gwcode', 'isonum', 'isoab', 'capname',
                    'caplat', 'caplong', 'in_africa', 'in_me',
@@ -43,13 +43,33 @@ class Country(object):
         return descriptors
 
     @staticmethod
-    @inner_cache.memoize(typed=True, expire=600, tag="country_neighbors")
+    @inner_cache.memoize(typed=True, expire=600000, tag="country_priogrid")
+    def __fetch_priogrid():
+        columns = ['pg_id', 'c_id', 'year']
+        priogrids = fetch_data(loa_table='pgy2cy', columns=columns)
+        return priogrids
+
+    @staticmethod
+    @inner_cache.memoize(typed=True, expire=6000000, tag="country_neighbors")
     def __fetch_neighbors():
         columns = ['a_id', 'b_id', 'month_id']
         neighbors = fetch_data(loa_table='country_country_month_expanded', columns=columns)
         return neighbors
 
-    @inner_cache.memoize(typed=True, expire=600, tag="country_neighbors_outer")
+    #@inner_cache.memoize(typed=True, expire=600000, tag="country_pg_outer")
+    def priogrids(self):
+        from .Priogrid import Priogrid
+        priogrids = Country.__fetch_priogrid()
+        priogrids = priogrids[priogrids.c_id == self.id]#.pg_id.drop_duplicates()
+        priogrids = priogrids[['pg_id']].drop_duplicates()
+        priogrids = [Priogrid(i) for i in list(priogrids.pg_id)]
+        return priogrids
+
+
+
+
+
+    @inner_cache.memoize(typed=True, expire=600000, tag="country_neighbors_outer")
     def neighbors(self, month_id = None):
         """
         Returns the first-order neighbors of a given country at a certain timepoint
@@ -112,6 +132,18 @@ class Country(object):
     def from_gwcode(cls, gwcode, month_id = None):
         return cls(cls.gwcode2id(gwcode, month_id))
 
+    @classmethod
+    def from_priogrid(cls, pg_id, year=None):
+        priogrids = cls.__fetch_priogrid()
+        if year is None:
+            year = ViewsMonth.now().year
+        try:
+            # Find the country for the given pg_id/year combo
+            c = cls(priogrids[(priogrids.pg_id == int(pg_id)) & (priogrids.year == int(year))].c_id.values[0])
+        except IndexError:
+            # Country not found
+            c = None
+        return c
 
     def __populate_attributes(self):
         descriptors = self.__fetch_descriptors()
@@ -131,6 +163,10 @@ class Country(object):
         self.year_end = int(descriptors.gweyear)
         self.lat = descriptors.centroidlat
         self.lon = descriptors.centroidlong
+
+    def __eq__(self, other):
+        if isinstance(other, Country):
+            return self.id == other.id
 
 
 
