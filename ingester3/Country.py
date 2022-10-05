@@ -8,9 +8,23 @@ inner_cache = Cache(inner_cache_path)
 
 class Country(object):
     def __init__(self, id: int):
-        #print (f"country: {id}")
-        self.id = self.__validate_id(id)
-        self.__populate_attributes()
+        self.name = None
+        self.gwcode = None
+        self.isonum = None
+        self.isoab = None
+        self.capname = None
+        self.caplat = None
+        self.caplong = None
+        self.in_africa = None
+        self.in_me = None
+        self.month_start = None
+        self.month_end = None
+        self.year_start = None
+        self.year_end = None
+        self.lat = None
+        self.lon = None
+        self.id = self.__validate_id(id) if id != 0 else None
+        self.__populate_attributes() if id != 0 else None
 
     @staticmethod
     @inner_cache.memoize(typed=True, expire=600, tag="country_list")
@@ -141,8 +155,8 @@ class Country(object):
             # Find the country for the given pg_id/year combo
             c = cls(priogrids[(priogrids.pg_id == int(pg_id)) & (priogrids.year == int(year))].c_id.values[0])
         except IndexError:
-            # Country not found
-            c = None
+            # Country not found, give the country 0 which is terra nulius, international land.
+            c = cls(0)
         return c
 
     def __populate_attributes(self):
