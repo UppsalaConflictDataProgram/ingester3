@@ -34,8 +34,7 @@ c3 = Country.from_iso('RUS').priogrids()[0].country(1987).isoab
 assert c3 == 'SUN'
 
 c4 = Country.from_priogrid(1)
-assert c4 is None
-
+assert c4.id is None
 
 x1 = pd.DataFrame({'pg_id': [173950, 193388, 157011], 'expected': [218, 117, 234]})
 assert (sum(x1.pg.c_id == x1.expected) == 3)
