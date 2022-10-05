@@ -132,7 +132,6 @@ def flash_fetch_definitions(schema,table):
     return mapper
 
 
-
 @cache.memoize(typed=True, expire=None, tag='fetch_columns')
 def fetch_columns(loa_table, data_summarization=False):
     tables = fetch_children(loa_table)
@@ -263,7 +262,10 @@ def fetch_data(loa_table, columns=None):
         raise KeyError("Duplicate columns in database! Contact the db administrator!")
 
     pk, fk = fetch_keys(loa_table)
-    base_table = pk[0].table
+    try:
+        base_table = pk[0].table
+    except:
+        pass
 
     children = fetch_children(loa_table)
 
