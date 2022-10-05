@@ -170,6 +170,17 @@ class CAccessor:
     def month_end(self):
         return self._obj.apply(lambda row: Country(row.c_id).month_end, axis=1)
 
+    @property
+    def pg_id(self):
+        """
+        Explodes a data frame at c/cm/cy level to the corresponding pg/pgm/pgy level maintaining all values intact.
+        :return: A pg/pgm/pgy data frame containing the same data.
+        """
+        z = self._obj.copy().drop_duplicates()
+        z['pg_id'] = z.apply(lambda x: [j.id for j in Country(x.c_id).priogrids()], axis=1)
+        z = z.explode('pg_id')
+        return z
+
     @classmethod
     def from_iso(cls, df, iso_col='iso', month_col=None):
         """
@@ -363,6 +374,23 @@ class PgAccessor:
 
     def db_id(self):
         return self._obj
+
+    @property
+    def c_id(self):
+        """
+        Returns a column containing country corresponding to the priogrid in the current panel (at present)
+        :return: A column of ViEWS country IDs
+        """
+        return self._obj.apply(lambda row: Country.from_priogrid(row.pg_id).id, axis=1)
+
+    def c_id_at_year(self, year):
+        """
+        Returns the country corresponding to a priogrid in a given year
+        :param year: A year scalar, e.g. 1989
+        :return: A column of ViEWS country IDs
+        """
+        return self._obj.apply(lambda row: Country.from_priogrid(row.pg_id, year).id, axis=1)
+
 
     @classmethod
     def from_latlon(cls, df, lat_col='lat', lon_col='lon'):
@@ -937,6 +965,11 @@ class PGMAccessor(PgAccessor, MAccessor):
         z['valid_year_month_latlon'] = z.valid_year_month & z.valid_latlon
         return z
 
+    @property
+    def country(self):
+        raise NotImplementedError("""Due to the asymmetric format of the DB (PGM is just Africa and ME), 
+        converting between PGM and CM is not supported in ingester as data loss. Use PGY->CY instead!""")
+
     @classmethod
     def soft_validate(cls, df):
         z = df.copy()
@@ -1168,6 +1201,10 @@ class PGYAccessor(PgAccessor):
                               right_on=['priogrid_gid', 'year_id'],
                               how='left').id
         return z
+
+    @property
+    def c_id(self):
+        return self._obj.apply(lambda row: Country.from_priogrid(row.pg_id, row.year_id).id, axis=1)
 
     def db_id(self):
         return PGYAccessor.__db_id(self._obj)
