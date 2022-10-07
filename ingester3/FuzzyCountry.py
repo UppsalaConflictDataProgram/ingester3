@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .scratch import fetch_data
+from .scratch import fetch_data, cache_manager
 from diskcache import Cache
 from .config import inner_cache_path
 from functools import partial
 from Levenshtein import jaro_winkler as jaro_winkler
+
 
 inner_cache = Cache(inner_cache_path)
 
