@@ -12,8 +12,9 @@ from Levenshtein import jaro_winkler as jaro_winkler
 inner_cache = Cache(inner_cache_path)
 
 class FuzzyCountry:
-    def __init__(self, name : str):
+    def __init__(self, name: str, precision: float = 0.8):
         self.name = name
+        self.precision = precision if 0 <= precision <= 1 else 0.8
         self.base_countries = self.__find_stack(self.name, self.__get_haystack())
 
     @staticmethod
@@ -44,7 +45,7 @@ class FuzzyCountry:
 
     @property
     def isoab(self):
-        if self.base_countries.score[0] > 0.8:
+        if self.base_countries.score[0] > self.precision:
             return self.base_countries.isoab[0]
         return None
 
@@ -53,9 +54,6 @@ class FuzzyCountry:
             k = 99999
         return self.base_countries.head(k)
 
-    def predict_proba(self, proba: float = 0.8):
-        if proba is None or proba < 0:
-            proba = 0
-        if proba > 1:
-            proba = 1
-        return self.base_countries[self.base_countries.score >= proba]
+    @property
+    def predict_proba(self):
+        return self.base_countries[self.base_countries.score >= self.precision]

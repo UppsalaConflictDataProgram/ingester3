@@ -2,6 +2,7 @@ from .Priogrid import Priogrid
 from .ViewsMonth import ViewsMonth
 from .Country import Country
 from .scratch import fetch_ids, fetch_ids_df, cache_manager
+from .FuzzyCountry import FuzzyCountry
 import pandas as pd
 import warnings
 from functools import partial
@@ -1220,4 +1221,41 @@ class PGYAccessor(PgAccessor):
         return z
 
 
+@pd.api.extensions.register_dataframe_accessor("fuzzy_country")
+class FuzzyCountryAccessor:
+    def __init__(self, pandas_obj):
+        self._validate(pandas_obj)
+        self._obj = pandas_obj
+        self.__precision = 0.8
 
+    @staticmethod
+    def _validate(obj):
+        pass
+
+    @property
+    def precision(self):
+        return self.__precision
+
+    @precision.setter
+    def precision(self, precision=0.8):
+        """
+        Set the minimum precision needed to match the names in the df against the list of names
+        Defined as the Jaro Winkler distance normalized as a pseudo-probability of a match.
+        :param precision: A float, 0.01-1.00 for the minimum precision needed for a match.
+        :return: Sets the property for a given df.
+        """
+        if 0 < precision < 1:
+            self.__precision  = precision
+        else:
+            warnings.warn("Precision outside [0,1] interval. Unchanged")
+
+    def isoab(self, col_name):
+        """
+        Returns the three-letter ISO code for a given column containing country names
+        Uses fuzzy matching on names, at a precision given by the precision parameter
+        default 0.8. None is returned if no name in a field
+        :param col_name: A Pandas column containing names to match
+        :return: A column of ISO codes obtained from the matches. None if no match was found.
+        """
+        z = self._obj.apply(lambda row: FuzzyCountry(row[col_name], self.__precision).isoab, axis=1)
+        return z
