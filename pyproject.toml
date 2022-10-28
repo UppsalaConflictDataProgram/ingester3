@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ingester3"
-version = "1.8.2"
+version = "1.8.4"
 description = "Data ingester for ViEWS3."
 authors = ["Mihai Croicu <mihai.croicu@pcr.uu.se>"]
 license = "MIT"
@@ -10,7 +10,7 @@ homepage = "https://github.com/UppsalaConflictDataProgram/ingester3>"
 
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pandas = "^1.2.3"
 sqlalchemy = "^1.3"
 psycopg2 = "^2.8.1"
