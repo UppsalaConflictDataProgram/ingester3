@@ -71,4 +71,3 @@ class ViewsMonth(object):
         #Start from 
         end_date = (date(self.year, self.month, 28)+timedelta(5)).replace(day=1)-timedelta(1)
         return datetime.strftime(end_date, '%Y-%m-%d')
-
