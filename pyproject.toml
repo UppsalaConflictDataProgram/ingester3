@@ -15,7 +15,7 @@ psycopg2 = "^2.8.1"
 diskcache = "^5.0.0"
 numpy = "^1.20"
 python-dotenv = "^0.18"
-cryptography = "^38.0"
+cryptography = "^36.0"
 levenshtein = "^0.20"
 
 [tool.poetry.dev-dependencies]
