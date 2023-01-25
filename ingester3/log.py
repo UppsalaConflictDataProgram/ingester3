@@ -71,6 +71,10 @@ def log_ingester(path=log_file):
                 logger.debug(f'Call: {func.__name__}')
                 formatted_arguments = 'Arguments passed:' + ', '.join(args_kwargs_passed_in_function)
                 logger.debug(formatted_arguments)
+                handlers = logger.handlers[:]
+                for handler in handlers:
+                    logger.removeHandler(handler)
+                    handler.close()
                 return func(*args, **kwargs)
 
             except Exception as e:
@@ -78,6 +82,7 @@ def log_ingester(path=log_file):
                 logger.exception(error_msg)
 
                 return e  # Or whatever message you want.
+
 
         return wrapper
 
