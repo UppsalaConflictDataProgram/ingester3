@@ -14,6 +14,24 @@ class ViewsMonth(object):
     def __str__(self):
         return f'ViewsMonth(id={self.id}) #=> year:{self.year}, month:{self.month}'
 
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __ne__(self, other):
+        return self.id != other.id
+
+    def __lt__(self, other):
+        return self.id < other.id
+
+    def __le__(self, other):
+        return self.id <= other.id
+
+    def __ge__(self, other):
+        return self.id >= other.id
+
+    def __gt__(self, other):
+        return self.id > other.id
+
     @classmethod
     def id2month(cls, id):
         return (id - 1) % 12 + 1
