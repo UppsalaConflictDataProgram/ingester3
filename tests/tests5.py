@@ -1,8 +1,7 @@
-from ingester3 import log
+from ingester3.extensions import ViewsMonth
 
-@log.log_ingester()
-def log_tester(x=1, y=2):
-    print(x+y)
-
-for i in range(1000000):
-    log_tester(1,i)
+assert ViewsMonth(501) == ViewsMonth(501)
+assert ViewsMonth(509) > ViewsMonth(501)
+assert ViewsMonth(529) < ViewsMonth(591)
+assert ViewsMonth(591) <= ViewsMonth(591)
+assert ViewsMonth(599) >= ViewsMonth(591)
