@@ -18,7 +18,7 @@ assert pgy_ids.shape[0] == 4602078
 cm_ids = fetch_ids_df('country_month')
 assert cm_ids.shape[0] == 158230
 cy_ids = fetch_ids_df('country_year')
-assert cy_ids.shape[0] == 13510
+assert cy_ids.shape[0] == 20392
 
 
 # Test the m accessor

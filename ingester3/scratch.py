@@ -87,10 +87,11 @@ def cache_manager(clear=False, secondary_clear=False):
     else:
         db_secondary = fetch_db_timestamp('id_colset_stamp')
         local_secondary = fetch_local_timestamp('id_colset_stamp')
+        #print(f"SECONDARY : {db_secondary},{local_secondary}")
         if local_secondary < db_secondary:
             print("Clearing Secondary Cache...")
             secondary_cache.clear(retry=True)
-            write_local_timestamp(db_stamp, 'id_colset_stamp')
+            write_local_timestamp(db_secondary, 'id_colset_stamp')
 
 @cache.memoize(typed=True, expire=None, tag='fetch_children')
 def fetch_children(loa_table, views_engine = views_engine):
