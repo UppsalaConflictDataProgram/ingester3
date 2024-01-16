@@ -96,7 +96,7 @@ class CAccessor:
 
     @staticmethod
     def make_helper_column(df, year_col, month):
-        if not(1<=month<=12):
+        if not(1 <= month <= 12):
             raise ValueError(f"Month {month} should be between 1 and 12!")
 
         df['__z_local_month_id'] = df.apply(lambda row: ViewsMonth.from_year_month(year=row[year_col],

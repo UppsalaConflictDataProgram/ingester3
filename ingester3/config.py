@@ -45,8 +45,8 @@ os.makedirs(os.path.dirname(working_dir), exist_ok=True)
 
 
 views_user = __fetch_views_user() if os.getenv('INGESTER_USER') is None else os.getenv('INGESTER_USER').lower()
-views_host = 'hermes' if os.getenv('INGESTER_HOST') is None else os.getenv('INGESTER_HOST').lower()
-views_db = 'fallback3_test' if testing else 'fallback3'
+views_host = 'gjoll.muspelheim.local' if os.getenv('INGESTER_HOST') is None else os.getenv('INGESTER_HOST').lower()
+views_db = 'views_test' if testing else 'views3'
 
 source_db_path = f'postgresql://{views_user}@{views_host}:5432/{views_db}'
 source_db_path = source_db_path if os.getenv('INGESTER_URI') is None else os.getenv('INGESTER_URI')

@@ -18,4 +18,4 @@ climate_indices_writer = DBWriter(pgm_base,
                    in_panel_zero = False, # set to Na if empty
                    out_panel_zero = False)
 climate_indices_writer.set_time_extents_min_max(115, 130)
-climate_indices_writer.transfer(tname = 'gknvsgtgs')
+climate_indices_writer.transfer(tname = 'test_xxx')

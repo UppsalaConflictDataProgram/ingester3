@@ -93,6 +93,14 @@ class DBWriter(object):
         if pandas_obj[key_col_name].isnull().sum() > 0:
             raise KeyError(f'Key column has nulls!')
 
+        for column in pandas_obj.columns:
+            if pandas_obj[column].dropna().empty:
+                raise ValueError(f"Column {column} is empty, containing only NaNs")
+
+        x = pandas_obj.select_dtypes(include=np.number)
+        for column in x.columns:
+            if x[column].sum() == 0: raise ValueError(f"Column {column} contains only the value 0.")
+
     @log.log_ingester()
     def __init__(self, pandas_obj, level='cm',
                  in_panel_wipe: bool = True,
