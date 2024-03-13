@@ -95,11 +95,14 @@ class DBWriter(object):
 
         for column in pandas_obj.columns:
             if pandas_obj[column].dropna().empty:
-                raise ValueError(f"Column {column} is empty, containing only NaNs")
+                if column not in self.no_val:
+                    raise ValueError(f"Column {column} is empty, containing only NaNs")
 
         x = pandas_obj.select_dtypes(include=np.number)
         for column in x.columns:
-            if x[column].sum() == 0: raise ValueError(f"Column {column} contains only the value 0.")
+            if column not in self.no_val:
+                if x[column].sum() == 0:
+                    raise ValueError(f"Column {column} contains only the value 0.")
 
     @log.log_ingester()
     def __init__(self, pandas_obj, level='cm',
@@ -107,7 +110,8 @@ class DBWriter(object):
                  out_panel_wipe: bool = False,
                  in_panel_zero: bool = True,
                  out_panel_zero: bool = False,
-                 verbose: bool = False
+                 verbose: bool = False,
+                 dont_validate_columns: list = None,
                  ):
 
         """
@@ -119,6 +123,7 @@ class DBWriter(object):
         :param in_panel_zero:
         :param out_panel_zero:
         :param verbose:
+        :param dont_validate_columns: A list of columns that should not be validated. This is useful when you have some columns that are not to be checked for drift.
         """
 
         self.RESERVED_WORDS = {'isocc', 'isoab', 'iso', 'isonum',
@@ -130,6 +135,11 @@ class DBWriter(object):
                                'datetime','tid','index:0','in_europe'}
 
         self.__verbose = verbose
+
+        if dont_validate_columns is None:
+            self.no_val = []
+        else:
+            self.no_val = [i.lower() for i in dont_validate_columns]
 
         self.__validate(pandas_obj, level)
 
